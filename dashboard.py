@@ -3,19 +3,51 @@ import dash
 from dash import html, dcc
 from dash.dependencies import Input, Output, State
 import config
+import priceCharts
+import historyCharts
 
 def create_app():
     app = dash.Dash(__name__)
     
-    # Initialize with some sample data to avoid empty displays
+    # Set the background color for the entire page
+    app.index_string = '''
+    <!DOCTYPE html>
+    <html>
+        <head>
+            {%metas%}
+            <title>{%title%}</title>
+            {%favicon%}
+            {%css%}
+            <style>
+                html, body {
+                    background-color: rgb(30,30,30);
+                    margin: 0;
+                    padding: 0;
+                    height: 100%;
+                    width: 100%;
+                }
+            </style>
+        </head>
+        <body>
+            {%app_entry%}
+            <footer>
+                {%config%}
+                {%scripts%}
+                {%renderer%}
+            </footer>
+        </body>
+    </html>
+    '''
+    
     initial_orderbook = {
         "bids": [{"price": "0.00000", "liquidity": "0"}],
         "asks": [{"price": "0.00000", "liquidity": "0"}],
         "timestamp": datetime.datetime.now()
     }
     
-    # Place initial orderbook data in the queue
     config.orderbook_queue.put(initial_orderbook)
+    
+    priceCharts.initialize_data_thread()
     
     app.layout = html.Div(
         style={
@@ -28,12 +60,15 @@ def create_app():
         children=[
             html.H1("Trading Dashboard", style={"textAlign": "center", "marginBottom": "30px"}),
             
+            priceCharts.create_price_charts_layout(),
+            
             html.Div(
                 style={
                     "backgroundColor": "#2c2c2c",
                     "padding": "30px",
                     "borderRadius": "8px",
-                    "width": "100%",
+                    "width": "95%",
+                    "height": "80px",
                     "textAlign": "center",
                     "marginBottom": "20px"
                 },
@@ -75,7 +110,8 @@ def create_app():
             dcc.Store(id="metrics-store", data=config.trading_metrics),
             dcc.Store(id="orderbook-store", data=initial_orderbook),
             
-            dcc.Interval(id="interval-component", interval=500, n_intervals=0)
+            dcc.Interval(id="interval-component", interval=500, n_intervals=0),
+            historyCharts.create_historical_chart_layout()
         ]
     )
     
@@ -96,19 +132,15 @@ def create_app():
         ]
     )
     def update_dashboard(n, stored_orders, stored_metrics, stored_orderbook):
-        # Process orders data
         new_orders = list(stored_orders)
         orders_updated = False
         
-        # Check orders queue
         while not config.orders_queue.empty():
             new_order = config.orders_queue.get()
             new_orders.append(new_order)
             orders_updated = True
-            # Log for debugging
             print(f"New order received: {new_order}")
         
-        # Process metrics
         updated_metrics = dict(stored_metrics) if stored_metrics else {"total_pnl": 0}
         while not config.metrics_queue.empty():
             metrics_update = config.metrics_queue.get()
@@ -117,7 +149,6 @@ def create_app():
         latest_orderbook = dict(stored_orderbook)
         orderbook_updated = False
         
-        # Check orderbook queue
         while not config.orderbook_queue.empty():
             new_book = config.orderbook_queue.get()
             if new_book.get("bids") or new_book.get("asks"):
@@ -127,16 +158,15 @@ def create_app():
                     "timestamp": new_book.get("timestamp", datetime.datetime.now())
                 }
                 orderbook_updated = True
-                # Log for debugging
                 print(f"Orderbook updated with {len(latest_orderbook['bids'])} bids and {len(latest_orderbook['asks'])} asks")
         
-        # Create UI components
         orders_table = create_orders_table(new_orders)
         orderbook_table = create_orderbook_table(latest_orderbook)
         total_pnl_styled = create_pnl_display(updated_metrics)
         
-        # Return updated components and data
         return orders_table, orderbook_table, new_orders, updated_metrics, latest_orderbook, total_pnl_styled
+    
+    priceCharts.register_callbacks(app)
     
     return app
 
@@ -209,7 +239,6 @@ def create_orders_table(orders):
 
 def create_orderbook_table(orderbook):
     if not orderbook or (not orderbook.get("bids") and not orderbook.get("asks")):
-        # Show placeholder when no orderbook data
         return html.Div([
             html.P("Waiting for orderbook data...", style={"color": "#888888", "textAlign": "center", "padding": "20px"}),
             html.Table(
@@ -231,7 +260,6 @@ def create_orderbook_table(orderbook):
             )
         ])
     
-    # We still get the timestamp for internal use, but won't display it
     timestamp_str = orderbook.get("timestamp", "")
     if isinstance(timestamp_str, datetime.datetime):
         timestamp_str = timestamp_str.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -244,9 +272,6 @@ def create_orderbook_table(orderbook):
     for i in range(max_rows):
         row_cells = []
         
-        # Removed timestamp column
-        
-        # Bid Price
         if i < len(bids):
             try:
                 bid_price = float(bids[i]['price'])
@@ -263,7 +288,6 @@ def create_orderbook_table(orderbook):
         else:
             row_cells.append(html.Td("", style={"padding": "8px"}))
         
-        # Bid Liquidity
         if i < len(bids):
             row_cells.append(
                 html.Td(
@@ -274,7 +298,6 @@ def create_orderbook_table(orderbook):
         else:
             row_cells.append(html.Td("", style={"padding": "8px"}))
         
-        # Ask Price
         if i < len(asks):
             try:
                 ask_price = float(asks[i]['price'])
@@ -291,7 +314,6 @@ def create_orderbook_table(orderbook):
         else:
             row_cells.append(html.Td("", style={"padding": "8px"}))
         
-        # Ask Liquidity
         if i < len(asks):
             row_cells.append(
                 html.Td(

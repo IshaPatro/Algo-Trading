@@ -4,47 +4,16 @@ import pandas as pd
 from orderManager import place_order
 from indicators import calculate_rsi
 import config
-import oandapyV20.endpoints.orders as orders
-import oandapyV20.endpoints.pricing as pricing
-
 
 def stream_data(stop_event):
+    "realtime stream data"
     previous_price_above_sma_50 = None
-    params = {
-        "instruments": config.instrument
-    }
-    r = pricing.PricingInfo(accountID=config.account_id, params=params)
-    
-    use_real_api = True
-    print("Using real API for pricing")
-    
     while not stop_event.is_set():
         try:
-            if use_real_api:
-                response = config.client.request(r)
-                
-                bids = response["prices"][0]["bids"]
-                asks = response["prices"][0]["asks"]
-            else:
-                import random
-                base_price = 1.1000 + (random.random() - 0.5) * 0.01
-                
-                bids = [
-                    {"price": str(base_price - 0.0001 * i), "liquidity": str(random.randint(100000, 1000000))}
-                    for i in range(5)
-                ]
-                
-                asks = [
-                    {"price": str(base_price + 0.0001 * (i + 1)), "liquidity": str(random.randint(100000, 1000000))}
-                    for i in range(5)
-                ]
-                
-                response = {
-                    "prices": [{
-                        "bids": bids,
-                        "asks": asks
-                    }]
-                }
+            response = config.client.request(r)  # r should be defined elsewhere
+            
+            bids = response["prices"][0]["bids"]
+            asks = response["prices"][0]["asks"]
             
             top_bids = bids[:5] if len(bids) >= 5 else bids
             top_asks = asks[:5] if len(asks) >= 5 else asks
@@ -77,7 +46,6 @@ def stream_data(stop_event):
                     df["SMA_50"] = df["Mid"].rolling(window=config.SMA_50_WINDOW, min_periods=1).mean()
                     df["SMA_200"] = df["Mid"].rolling(window=config.SMA_200_WINDOW, min_periods=1).mean()
 
-                    print("Length of df: ", len(df))
                     if len(df) >= config.RSI_WINDOW:
                         df["RSI"] = calculate_rsi(df["Mid"], config.RSI_WINDOW)
                     

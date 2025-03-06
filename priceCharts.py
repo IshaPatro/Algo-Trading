@@ -7,22 +7,16 @@ from dash.dependencies import Input, Output
 import config
 from threading import Thread, Event
 
-# Style variables
 dark_bg_color = "#1e1e1e"
 plot_bg_color = "#2c2c2c"
 text_color = "#ffffff"
 grid_color = "#444444"
 
-# Data storage
 data = []
 stop_event = Event()
 
 def stream_data(stop_event):
-    start_time = time.time()
     while not stop_event.is_set():
-        if time.time() - start_time > 300:
-            stop_event.set()
-            break
         try:
             response = config.client.request(config.r)
             prices = response["prices"]
@@ -57,12 +51,8 @@ def create_price_charts_layout():
         
         html.Div([
             html.Div([
-                dcc.Graph(id="volatility-graph"),
-            ], style={"width": "50%", "display": "inline-block"}),
-            
-            html.Div([
-                dcc.Graph(id="histogram-graph"),
-            ], style={"width": "50%", "display": "inline-block"}),
+                dcc.Graph(id="sma-graph"),
+            ], style={"width": "100%", "display": "block"}),
         ]),
         
         html.Div(id="charts-stats-container"),
@@ -77,8 +67,7 @@ def register_callbacks(app):
     @app.callback(
         [Output("live-graph", "figure"), 
          Output("spread-graph", "figure"),
-         Output("volatility-graph", "figure"),
-         Output("histogram-graph", "figure"),
+         Output("sma-graph", "figure"),
          Output("charts-stats-container", "children")],
         Input("interval-component", "n_intervals")
     )
@@ -96,19 +85,25 @@ def register_callbacks(app):
             }
             empty_stats = html.Div("Waiting for price data...", 
                                  style={"color": text_color, "textAlign": "center", "padding": "20px"})
-            return empty_figure, empty_figure, empty_figure, empty_figure, empty_stats
+            return empty_figure, empty_figure, empty_figure, empty_stats
         
         df["Timestamp"] = pd.to_datetime(df["Timestamp"])
         
-        # Calculate additional metrics
+        # Filter data to show only the last 10 minutes
+        ten_minutes_ago = datetime.datetime.now() - datetime.timedelta(minutes=10)
+        df = df[df["Timestamp"] >= ten_minutes_ago]
+        
         if len(df) > 1:
             df["Price_Change"] = df["Bid"].diff().fillna(0)
             df["Volatility"] = df["Price_Change"].rolling(window=10).std().fillna(0) * 10000
+            df["SMA_50"] = df["Bid"].rolling(window=config.SMA_50_WINDOW, min_periods=1).mean()
+            df["SMA_200"] = df["Bid"].rolling(window=config.SMA_200_WINDOW, min_periods=50).mean()
         else:
             df["Price_Change"] = 0
             df["Volatility"] = 0
+            df["SMA_50"] = df["Bid"]
+            df["SMA_200"] = df["Bid"]
 
-        # Bid-ask figure
         bid_ask_figure = {
             "data": [
                 go.Scatter(
@@ -137,11 +132,15 @@ def register_callbacks(app):
                     "zerolinecolor": grid_color,
                 },
                 yaxis={
-                    "title": "Price",
+                    "title": "",
                     "color": text_color,
                     "gridcolor": grid_color,
                     "linecolor": grid_color,
                     "zerolinecolor": grid_color,
+                    "tickfont": {"size": 8, "color": "#ffffff"},
+                    "tickformat": ".5f",
+                    "showgrid": True,
+                    "gridwidth": 1,
                 },
                 title={
                     "text": "EUR/USD Bid and Ask Prices",
@@ -156,7 +155,6 @@ def register_callbacks(app):
             ),
         }
 
-        # Spread figure
         spread_figure = {
             "data": [
                 go.Scatter(
@@ -197,15 +195,32 @@ def register_callbacks(app):
             ),
         }
 
-        # Volatility figure
-        volatility_figure = {
+        stats = html.Div([], style={"display": "none"})
+
+        sma_figure = {
             "data": [
                 go.Scatter(
                     x=df["Timestamp"],
-                    y=df["Volatility"],
+                    y=df["Bid"],
                     mode="lines",
-                    name="Volatility",
-                    line={"color": "#ff9900"},
+                    name="Price",
+                    line={"color": "#00ff00"},
+                    connectgaps=True
+                ),
+                go.Scatter(
+                    x=df["Timestamp"],
+                    y=df["SMA_50"],
+                    mode="lines",
+                    name="SMA 50",
+                    line={"color": "#ffa500"},
+                    connectgaps=True
+                ),
+                go.Scatter(
+                    x=df["Timestamp"],
+                    y=df["SMA_200"],
+                    mode="lines",
+                    name="SMA 200",
+                    line={"color": "#1f77b4"},
                     connectgaps=True
                 ),
             ],
@@ -218,89 +233,27 @@ def register_callbacks(app):
                     "zerolinecolor": grid_color,
                 },
                 yaxis={
-                    "title": "Volatility (pips)",
+                    "title": "",
                     "color": text_color,
                     "gridcolor": grid_color,
                     "linecolor": grid_color,
                     "zerolinecolor": grid_color,
+                    "tickfont": {"size": 8, "color": "#ffffff"},
+                    "tickformat": ".5f",
+                    "showgrid": True,
+                    "gridwidth": 1,
                 },
                 title={
-                    "text": "EUR/USD Volatility (10-period Std. Dev.)",
+                    "text": "EUR/USD Price with SMA 50 and SMA 200",
                     "font": {"color": text_color},
                 },
                 margin={"l": 40, "r": 40, "t": 40, "b": 40},
                 plot_bgcolor=plot_bg_color,
                 paper_bgcolor=dark_bg_color,
                 font={"color": text_color},
+                legend={"font": {"color": text_color}},
                 height=300,
             ),
         }
-
-        # Histogram of spreads
-        histogram_figure = {
-            "data": [
-                go.Histogram(
-                    x=df["Spread"],
-                    marker_color="#9c27b0",
-                    opacity=0.7,
-                    name="Spread Distribution",
-                    nbinsx=20
-                )
-            ],
-            "layout": go.Layout(
-                xaxis={
-                    "title": "Spread (pips)",
-                    "color": text_color,
-                    "gridcolor": grid_color,
-                    "linecolor": grid_color,
-                    "zerolinecolor": grid_color,
-                },
-                yaxis={
-                    "title": "Frequency",
-                    "color": text_color,
-                    "gridcolor": grid_color,
-                    "linecolor": grid_color,
-                    "zerolinecolor": grid_color,
-                },
-                title={
-                    "text": "Spread Distribution",
-                    "font": {"color": text_color},
-                },
-                margin={"l": 40, "r": 40, "t": 40, "b": 40},
-                plot_bgcolor=plot_bg_color,
-                paper_bgcolor=dark_bg_color,
-                font={"color": text_color},
-                height=300,
-            ),
-        }
-
-        # Stats panel
-        stats = html.Div([
-            html.Div([
-                html.Div([
-                    html.H4("Current Price", style={"color": text_color, "textAlign": "center", "fontSize": "16px", "margin": "0 0 10px 0"}),
-                    html.Table([
-                        html.Tr([html.Td("Bid:", style={"padding": "5px 10px"}), 
-                                html.Td(f"{df['Bid'].iloc[-1]:.5f}", style={"padding": "5px 10px", "textAlign": "right"})]),
-                        html.Tr([html.Td("Ask:", style={"padding": "5px 10px"}), 
-                                html.Td(f"{df['Ask'].iloc[-1]:.5f}", style={"padding": "5px 10px", "textAlign": "right"})]),
-                        html.Tr([html.Td("Spread:", style={"padding": "5px 10px"}), 
-                                html.Td(f"{df['Spread'].iloc[-1]:.1f} pips", style={"padding": "5px 10px", "textAlign": "right"})]),
-                    ], style={"width": "100%", "borderCollapse": "collapse"})
-                ], style={"width": "50%", "display": "inline-block", "verticalAlign": "top"}),
-                
-                html.Div([
-                    html.H4("Session Stats", style={"color": text_color, "textAlign": "center", "fontSize": "16px", "margin": "0 0 10px 0"}),
-                    html.Table([
-                        html.Tr([html.Td("Avg Spread:", style={"padding": "5px 10px"}), 
-                                html.Td(f"{df['Spread'].mean():.1f} pips", style={"padding": "5px 10px", "textAlign": "right"})]),
-                        html.Tr([html.Td("Min Spread:", style={"padding": "5px 10px"}), 
-                                html.Td(f"{df['Spread'].min():.1f} pips", style={"padding": "5px 10px", "textAlign": "right"})]),
-                        html.Tr([html.Td("Max Spread:", style={"padding": "5px 10px"}), 
-                                html.Td(f"{df['Spread'].max():.1f} pips", style={"padding": "5px 10px", "textAlign": "right"})]),
-                    ], style={"width": "100%", "borderCollapse": "collapse"})
-                ], style={"width": "50%", "display": "inline-block", "verticalAlign": "top"})
-            ], style={"display": "flex", "justifyContent": "space-around"})
-        ], style={"backgroundColor": dark_bg_color, "padding": "15px", "borderRadius": "5px", "margin": "10px 0"})
-
-        return bid_ask_figure, spread_figure, volatility_figure, histogram_figure, stats
+        
+        return bid_ask_figure, spread_figure, sma_figure, stats

@@ -5,25 +5,21 @@ import configparser
 import oandapyV20
 import oandapyV20.endpoints.pricing as pricing
 
-# Constants
 STRONG_SIGNAL_QUANTITY = 10000
 WEAK_SIGNAL_QUANTITY = 5000
 SMA_50_WINDOW = 50
 SMA_200_WINDOW = 200
 RSI_WINDOW = 14
 
-# Global variables
 price_data = []
 orders_history = []
 orderbook_data = []
 data_lock = Lock()
 
-# Queues for inter-thread communication
 orders_queue = Queue()
 metrics_queue = Queue()
 orderbook_queue = Queue()
 
-# Initial trading metrics
 trading_metrics = {
     "total_pnl": 0,
 }
