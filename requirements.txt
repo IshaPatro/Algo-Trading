@@ -1,0 +1,12 @@
+dash
+pandas
+plotly
+oandapyV20
+numpy
+python-dateutil
+pytz
+dash-core-components 
+dash-html-components
+requests
+oandapyV20
+git+https://github.com/yhilpisch/tpqoa.git
