@@ -4,7 +4,7 @@ import pandas as pd
 import configparser
 import oandapyV20
 import oandapyV20.endpoints.pricing as pricing
-import os
+import os.path
 
 STRONG_SIGNAL_QUANTITY = 1000000000
 WEAK_SIGNAL_QUANTITY = 50000000
@@ -38,9 +38,15 @@ if os.path.exists("oanda.cfg"):
     access_token = config["oanda"]["access_token"]
     account_type = config["oanda"]["account_type"]
 else:
-    account_id = os.getenv("OANDA_ACCOUNT_ID")
-    access_token = os.getenv("OANDA_API_KEY")
-    account_type = os.getenv("OANDA_ACCOUNT_TYPE")
+    account_id = os.getenv("account_id")
+    access_token = os.getenv("access_token")
+    account_type = os.getenv("account_type")
+
+# config = configparser.ConfigParser()
+# config.read("oanda.cfg")
+# account_id = config["oanda"]["account_id"]
+# access_token = config["oanda"]["access_token"]
+# account_type = config["oanda"]["account_type"]
 
 client = oandapyV20.API(access_token=access_token)
                         
