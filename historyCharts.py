@@ -4,7 +4,6 @@ import tpqoa
 import config
 from dash import dcc, html
 
-# Use the same styling variables as in priceCharts.py
 dark_bg_color = "#1e1e1e"
 text_color = "#ffffff" 
 grid_color = "#4d4d4d" 

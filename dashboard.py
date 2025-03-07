@@ -9,7 +9,6 @@ import historyCharts
 def create_app():
     app = dash.Dash(__name__)
     
-    # Set the background color for the entire page
     app.index_string = '''
     <!DOCTYPE html>
     <html>
@@ -58,7 +57,8 @@ def create_app():
             "fontFamily": "Arial, sans-serif"
         },
         children=[
-            html.H1("Trading Dashboard", style={"textAlign": "center", "marginBottom": "30px"}),
+            html.H1("TradePulse", style={"textAlign": "center", "marginBottom": "30px"}),
+            html.H4("SMA-Based Algo Trading on OANDA", style={"textAlign": "center", "marginBottom": "30px"}),
             
             priceCharts.create_price_charts_layout(),
             
@@ -132,34 +132,49 @@ def create_app():
         ]
     )
     def update_dashboard(n, stored_orders, stored_metrics, stored_orderbook):
-        new_orders = list(stored_orders)
+        # Initialize new_orders as an empty list if stored_orders is None
+        new_orders = list(stored_orders) if stored_orders else []
         orders_updated = False
         
+        # Process any new orders in the queue
         while not config.orders_queue.empty():
-            new_order = config.orders_queue.get()
-            new_orders.append(new_order)
-            orders_updated = True
-            print(f"New order received: {new_order}")
+            try:
+                new_order = config.orders_queue.get()
+                if new_order and isinstance(new_order, dict):
+                    new_orders.append(new_order)
+                    orders_updated = True
+                    print(f"New order received and added to display: {new_order}")
+            except Exception as e:
+                print(f"Error processing order from queue: {e}")
         
+        # Process metrics updates
         updated_metrics = dict(stored_metrics) if stored_metrics else {"total_pnl": 0}
         while not config.metrics_queue.empty():
-            metrics_update = config.metrics_queue.get()
-            updated_metrics.update(metrics_update)
-            print(f"Metrics updated: {metrics_update}")
-        latest_orderbook = dict(stored_orderbook)
+            try:
+                metrics_update = config.metrics_queue.get()
+                if metrics_update and isinstance(metrics_update, dict):
+                    updated_metrics.update(metrics_update)
+                    print(f"Metrics updated: {metrics_update}")
+            except Exception as e:
+                print(f"Error processing metrics from queue: {e}")
+                
+        # Process orderbook updates
+        latest_orderbook = dict(stored_orderbook) if stored_orderbook else {"bids": [], "asks": [], "timestamp": datetime.datetime.now()}
         orderbook_updated = False
         
         while not config.orderbook_queue.empty():
-            new_book = config.orderbook_queue.get()
-            if new_book.get("bids") or new_book.get("asks"):
-                latest_orderbook = {
-                    "bids": new_book.get("bids", []),
-                    "asks": new_book.get("asks", []),
-                    "timestamp": new_book.get("timestamp", datetime.datetime.now())
-                }
-                orderbook_updated = True
-                print(f"Orderbook updated with {len(latest_orderbook['bids'])} bids and {len(latest_orderbook['asks'])} asks")
-        
+            try:
+                new_book = config.orderbook_queue.get()
+                if new_book and (new_book.get("bids") or new_book.get("asks")):
+                    latest_orderbook = {
+                        "bids": new_book.get("bids", []),
+                        "asks": new_book.get("asks", []),
+                        "timestamp": new_book.get("timestamp", datetime.datetime.now())
+                    }
+                    orderbook_updated = True
+            except Exception as e:
+                print(f"Error processing orderbook from queue: {e}")
+                
         orders_table = create_orders_table(new_orders)
         orderbook_table = create_orderbook_table(latest_orderbook)
         total_pnl_styled = create_pnl_display(updated_metrics)
@@ -196,6 +211,30 @@ def create_orders_table(orders):
             )
         ])
     
+    # Create a list of table rows for each order
+    order_rows = []
+    for order in reversed(orders):
+        order_rows.append(
+            html.Tr(
+                style={"borderBottom": "1px solid #333"},
+                children=[
+                    html.Td(order.get("order_id", "N/A"), style={"padding": "8px"}),
+                    html.Td(order.get("timestamp", "N/A"), style={"padding": "8px"}),
+                    html.Td(
+                        order.get("type", "N/A"), 
+                        style={
+                            "padding": "8px", 
+                            "color": "green" if order.get("type") == "BUY" else "red"
+                        }
+                    ),
+                    html.Td(f"{float(order.get('price', 0)):.5f}", style={"padding": "8px", "textAlign": "right"}),
+                    html.Td(f"{int(float(order.get('quantity', 0)))}", style={"padding": "8px", "textAlign": "right"}),
+                    html.Td(order.get("strategy", "N/A"), style={"padding": "8px"}),
+                ]
+            )
+        )
+    
+    # Create and return the table with all order rows
     return html.Table(
         style={"width": "100%", "borderCollapse": "collapse"},
         children=[
@@ -212,28 +251,7 @@ def create_orders_table(orders):
                     ])
                 ]
             ),
-            html.Tbody(
-                children=[
-                    html.Tr(
-                        style={"borderBottom": "1px solid #333"},
-                        children=[
-                            html.Td(order.get("order_id", "N/A"), style={"padding": "8px"}),
-                            html.Td(order.get("timestamp", "N/A"), style={"padding": "8px"}),
-                            html.Td(
-                                order.get("type", "N/A"), 
-                                style={
-                                    "padding": "8px", 
-                                    "color": "green" if order.get("type") == "BUY" else "red"
-                                }
-                            ),
-                            html.Td(f"{float(order.get('price', 0)):.5f}", style={"padding": "8px", "textAlign": "right"}),
-                            html.Td(order.get("quantity", "N/A"), style={"padding": "8px", "textAlign": "right"}),
-                            html.Td(order.get("strategy", "N/A"), style={"padding": "8px"}),
-                        ]
-                    ) 
-                    for order in reversed(orders)
-                ]
-            )
+            html.Tbody(children=order_rows)
         ]
     )
 
