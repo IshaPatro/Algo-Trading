@@ -4,9 +4,10 @@ import pandas as pd
 import configparser
 import oandapyV20
 import oandapyV20.endpoints.pricing as pricing
+import os
 
-STRONG_SIGNAL_QUANTITY = 10000000
-WEAK_SIGNAL_QUANTITY = 500000
+STRONG_SIGNAL_QUANTITY = 1000000000
+WEAK_SIGNAL_QUANTITY = 50000000
 SMA_50_WINDOW = 50
 SMA_200_WINDOW = 200
 RSI_WINDOW = 14
@@ -22,13 +23,25 @@ orderbook_queue = Queue()
 
 trading_metrics = {
     "total_pnl": 0,
+    "total_buy_quantity": 0,
+    "total_sell_quantity": 0,
+    "total_buy_value": 0,
+    "total_sell_value": 0,
+    "buy_avg_price": 0,
+    "sell_avg_price": 0,
 }
 
 config = configparser.ConfigParser()
-config.read("oanda.cfg")
-account_id = config["oanda"]["account_id"]
-access_token = config["oanda"]["access_token"]
-account_type = config["oanda"]["account_type"]
+if os.path.exists("oanda.cfg"):
+    config.read("oanda.cfg")
+    account_id = config["oanda"]["account_id"]
+    access_token = config["oanda"]["access_token"]
+    account_type = config["oanda"]["account_type"]
+else:
+    account_id = os.getenv("OANDA_ACCOUNT_ID")
+    access_token = os.getenv("OANDA_API_KEY")
+    account_type = os.getenv("OANDA_ACCOUNT_TYPE")
+
 client = oandapyV20.API(access_token=access_token)
                         
 instrument = "EUR_USD"
