@@ -3,30 +3,12 @@ import plotly.graph_objs as go
 import tpqoa
 import config
 from dash import dcc, html
+from oandapyV20.endpoints.instruments import InstrumentsCandles
 
 dark_bg_color = "#1e1e1e"
 text_color = "#ffffff" 
 grid_color = "#4d4d4d" 
 plot_bg_color = "#2d2d2d" 
-
-# def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-03", granularity="D", price="B"):
-#     """Fetch historical price data from OANDA using tpqoa"""
-#     try:
-#         api = tpqoa.tpqoa("oanda.cfg")
-#         historical_df = api.get_history(
-#             instrument=instrument,
-#             start=start,
-#             end=end,
-#             granularity=granularity,
-#             price=price
-#         )
-#         historical_df["time"] = historical_df.index
-#         return historical_df
-#     except Exception as e:
-#         print(f"Error fetching historical data: {e}")
-#         return pd.DataFrame()
-
-from oandapyV20.endpoints.instruments import InstrumentsCandles
 
 def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-03", granularity="D", price="B"):
     try:

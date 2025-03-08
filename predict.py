@@ -4,17 +4,66 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 import warnings
 import plotly.graph_objs as go
-import yfinance as yf
 from dash import dcc, html
+from oandapyV20 import API
+from oandapyV20.endpoints.instruments import InstrumentsCandles
+import config
 
 warnings.filterwarnings('ignore')
 
+def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-03", granularity="D", price="B"):
+    try:
+        params = {
+            "from": start,
+            "to": end,
+            "granularity": granularity,
+            "price": price
+        }
+
+        r = InstrumentsCandles(instrument=instrument, params=params)
+        response = config.client.request(r)
+        candles = response.get("candles", [])
+        data = []
+
+        for candle in candles:
+            row = {
+                "time": candle["time"],
+                "volume": candle["volume"],
+                "complete": candle["complete"]
+            }
+            for price_type in ["bid", "ask", "mid"]:
+                if price_type in candle:
+                    for key, value in candle[price_type].items():
+                        row[f"{price_type}_{key}"] = float(value)
+            data.append(row)
+
+        historical_df = pd.DataFrame(data)
+        historical_df["time"] = pd.to_datetime(historical_df["time"])
+        print("Historical DF: ", historical_df.columns)
+        return historical_df
+
+    except Exception as e:
+        print(f"Error fetching historical data: {e}")
+        return pd.DataFrame()
+
 def fetch_stock_data():
-    stock = "EURUSD=X"
-    end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    end_date = datetime.datetime.now().strftime("%Y-%m-%d")
     start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
     
-    df = yf.download(stock, start=start_date, end=end_date)
+    df = get_historical_data(instrument="EUR_USD", start=start_date, end=end_date)
+    
+    # Prepare the dataframe to match the format from yfinance
+    # Assuming we use mid_c as Close price
+    df = df.rename(columns={
+        'time': 'Date',
+        'mid_o': 'Open',
+        'mid_h': 'High',
+        'mid_l': 'Low',
+        'mid_c': 'Close',
+        'volume': 'Volume'
+    })
+    
+    df.set_index('Date', inplace=True)
     df.dropna(how='any', inplace=True)
     return df
 

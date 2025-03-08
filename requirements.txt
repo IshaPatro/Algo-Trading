@@ -11,5 +11,4 @@ plotly==6.0.0
 python-dotenv==1.0.1
 requests==2.32.3
 scikit-learn==1.5.1y
-yfinance==0.1.59
 tpqoa @ git+https://github.com/yhilpisch/tpqoa.git@4a79f30b7095642844ef99741d9bfcb952e394db
