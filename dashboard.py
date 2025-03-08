@@ -12,6 +12,7 @@ import plotly.graph_objs as go
 import yfinance as yf
 import warnings
 import predict
+from predict import predict_today_price
 
 warnings.filterwarnings('ignore')
 
@@ -319,18 +320,6 @@ def buy_sell_signal(data):
             open_position.append(0)
             sell_signal.append(np.nan)
     return buy_signal, sell_signal, open_position, funds, flag
-
-def predict_today_price(data):
-    df_prediction = data.copy()
-    df_prediction = df_prediction.reset_index()
-    df_prediction['Date_num'] = pd.to_datetime(df_prediction['Date']).map(datetime.datetime.toordinal)
-    X = df_prediction['Date_num'].values.reshape(-1, 1)
-    y = df_prediction['Price'].values
-    model = LinearRegression()
-    model.fit(X, y)
-    today_date_num = datetime.datetime.now().toordinal()
-    predicted_price = model.predict([[today_date_num]])[0]
-    return predicted_price
 
 def create_orders_table(orders):
     if not orders:
