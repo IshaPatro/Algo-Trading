@@ -58,9 +58,15 @@ def create_app():
     
     priceCharts.initialize_data_thread()
     
-    stock_data = fetch_stock_data()
-    prediction_data = prepare_prediction_data(stock_data)
-    today_predicted_price = predict_today_price(prediction_data)
+    try:
+        stock_data = fetch_stock_data()
+        prediction_data = prepare_prediction_data(stock_data)
+        today_predicted_price = predict_today_price(prediction_data)
+    except Exception as e:
+        print(f"Error preparing prediction data: {e}")
+        # Provide fallback values
+        prediction_data = pd.DataFrame()
+        today_predicted_price = 1.0800  # Fallback value for EUR/USD
     
     app.layout = html.Div(
         style={
@@ -168,7 +174,8 @@ def create_app():
                     html.H2("EUR/USD Price Prediction", style={"marginTop": "0", "marginBottom": "15px"}),
                     html.H3(f"Today's predicted price: ${today_predicted_price:.4f}", 
                         style={'textAlign': 'center', 'color': '#FFFFFF', 'marginTop': '15px'}),
-                    predict.create_prediction_graph(prediction_data, today_predicted_price)
+                    predict.create_prediction_graph(prediction_data, today_predicted_price) if not prediction_data.empty else 
+                    html.Div("Prediction data not available", style={"color": "#888888", "textAlign": "center", "padding": "20px"})
                 ]
             ),
         ]
@@ -250,13 +257,29 @@ def create_app():
     return app
 
 def fetch_stock_data():
-    stock = "EURUSD=X"
-    end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-    start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
-    
-    df = yf.download(stock, start=start_date, end=end_date)
-    df.dropna(how='any', inplace=True)
-    return df
+    try:
+        stock = "EURUSD=X"
+        end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
+        
+        df = yf.download(stock, start=start_date, end=end_date)
+        
+        # Check if DataFrame is empty
+        if df.empty:
+            print("Warning: Downloaded stock data is empty")
+            return pd.DataFrame()
+            
+        # Ensure index is properly set
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.reset_index(inplace=True)
+            if 'Date' in df.columns:
+                df.set_index('Date', inplace=True)
+            
+        df.dropna(how='any', inplace=True)
+        return df
+    except Exception as e:
+        print(f"Error in fetch_stock_data: {e}")
+        return pd.DataFrame()
 
 def prepare_prediction_data(df):
     SMA50 = pd.DataFrame()
