@@ -5,6 +5,15 @@ from dash.dependencies import Input, Output, State
 import config
 import priceCharts
 import historyCharts
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+import plotly.graph_objs as go
+import yfinance as yf
+import warnings
+import predict
+
+warnings.filterwarnings('ignore')
 
 def create_app():
     app = dash.Dash(__name__)
@@ -48,6 +57,10 @@ def create_app():
     
     priceCharts.initialize_data_thread()
     
+    stock_data = fetch_stock_data()
+    prediction_data = prepare_prediction_data(stock_data)
+    today_predicted_price = predict_today_price(prediction_data)
+    
     app.layout = html.Div(
         style={
             "backgroundColor": "#1e1e1e",
@@ -65,18 +78,49 @@ def create_app():
             html.Div(
                 style={
                     "backgroundColor": "#2c2c2c",
-                    "padding": "30px",
+                    "padding": "20px",
                     "borderRadius": "8px",
                     "width": "95%",
-                    "height": "80px",
-                    "textAlign": "center",
-                    "marginBottom": "20px"
+                    "marginBottom": "20px",
+                    "display": "flex",
+                    "justifyContent": "space-between"
                 },
                 children=[
-                    html.H3("Total P&L", style={"margin": "0", "fontSize": "20px"}),
-                    html.H2(id="total-pnl", style={"margin": "15px 0", "fontSize": "36px"})
+                    html.Div(
+                        style={
+                            "textAlign": "center",
+                            "flex": "1",
+                            "padding": "10px"
+                        },
+                        children=[
+                            html.H3("Buy Avg Price", style={"margin": "0", "fontSize": "18px"}),
+                            html.H2(id="buy-avg-price", style={"margin": "10px 0", "fontSize": "24px", "color": "green"})
+                        ]
+                    ),
+                    html.Div(
+                        style={
+                            "textAlign": "center",
+                            "flex": "1",
+                            "padding": "10px"
+                        },
+                        children=[
+                            html.H3("Total P&L", style={"margin": "0", "fontSize": "20px"}),
+                            html.H2(id="total-pnl", style={"margin": "10px 0", "fontSize": "32px"})
+                        ]
+                    ),
+                    html.Div(
+                        style={
+                            "textAlign": "center",
+                            "flex": "1",
+                            "padding": "10px"
+                        },
+                        children=[
+                            html.H3("Sell Avg Price", style={"margin": "0", "fontSize": "18px"}),
+                            html.H2(id="sell-avg-price", style={"margin": "10px 0", "fontSize": "24px", "color": "red"})
+                        ]
+                    )
                 ]
-            ),
+            ),           
             
             html.Div(
                 style={
@@ -111,7 +155,21 @@ def create_app():
             dcc.Store(id="orderbook-store", data=initial_orderbook),
             
             dcc.Interval(id="interval-component", interval=500, n_intervals=0),
-            historyCharts.create_historical_chart_layout()
+            historyCharts.create_historical_chart_layout(),
+            html.Div(
+                style={
+                    "backgroundColor": "#2c2c2c",
+                    "padding": "20px",
+                    "borderRadius": "8px",
+                    "marginBottom": "20px"
+                },
+                children=[
+                    html.H2("EUR/USD Price Prediction", style={"marginTop": "0", "marginBottom": "15px"}),
+                    html.H3(f"Today's predicted price: ${today_predicted_price:.4f}", 
+                        style={'textAlign': 'center', 'color': '#FFFFFF', 'marginTop': '15px'}),
+                    predict.create_prediction_graph(prediction_data, today_predicted_price)
+                ]
+            ),
         ]
     )
     
@@ -123,6 +181,8 @@ def create_app():
             Output("metrics-store", "data"),
             Output("orderbook-store", "data"),
             Output("total-pnl", "children"),
+            Output("buy-avg-price", "children"),
+            Output("sell-avg-price", "children"),
         ],
         Input("interval-component", "n_intervals"),
         [
@@ -132,11 +192,8 @@ def create_app():
         ]
     )
     def update_dashboard(n, stored_orders, stored_metrics, stored_orderbook):
-        # Initialize new_orders as an empty list if stored_orders is None
         new_orders = list(stored_orders) if stored_orders else []
         orders_updated = False
-        
-        # Process any new orders in the queue
         while not config.orders_queue.empty():
             try:
                 new_order = config.orders_queue.get()
@@ -147,8 +204,9 @@ def create_app():
             except Exception as e:
                 print(f"Error processing order from queue: {e}")
         
-        # Process metrics updates
-        updated_metrics = dict(stored_metrics) if stored_metrics else {"total_pnl": 0}
+        with config.data_lock:
+            updated_metrics = config.trading_metrics.copy()
+        
         while not config.metrics_queue.empty():
             try:
                 metrics_update = config.metrics_queue.get()
@@ -158,7 +216,6 @@ def create_app():
             except Exception as e:
                 print(f"Error processing metrics from queue: {e}")
                 
-        # Process orderbook updates
         latest_orderbook = dict(stored_orderbook) if stored_orderbook else {"bids": [], "asks": [], "timestamp": datetime.datetime.now()}
         orderbook_updated = False
         
@@ -179,15 +236,104 @@ def create_app():
         orderbook_table = create_orderbook_table(latest_orderbook)
         total_pnl_styled = create_pnl_display(updated_metrics)
         
-        return orders_table, orderbook_table, new_orders, updated_metrics, latest_orderbook, total_pnl_styled
+        buy_avg_price = updated_metrics.get('buy_avg_price', 0)
+        buy_avg_display = f"{buy_avg_price:.5f}"
+        
+        sell_avg_price = updated_metrics.get('sell_avg_price', 0)
+        sell_avg_display = f"{sell_avg_price:.5f}"
+        
+        return orders_table, orderbook_table, new_orders, updated_metrics, latest_orderbook, total_pnl_styled, buy_avg_display, sell_avg_display
     
     priceCharts.register_callbacks(app)
     
     return app
 
+def fetch_stock_data():
+    stock = "EURUSD=X"
+    end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
+    
+    df = yf.download(stock, start=start_date, end=end_date)
+    df.dropna(how='any', inplace=True)
+    return df
+
+def prepare_prediction_data(df):
+    SMA50 = pd.DataFrame()
+    SMA50['Price'] = df['Close'].rolling(window=50).mean()
+    SMA200 = pd.DataFrame()
+    SMA200['Price'] = df['Close'].rolling(window=200).mean()
+
+    Data = pd.DataFrame()
+    Data['Price'] = df['Close']
+    Data['SMA50'] = SMA50['Price']
+    Data['SMA200'] = SMA200['Price']
+    Data['funds'] = 100000 
+    
+    buy_sell = buy_sell_signal(Data)
+    Data['Buy_price'] = buy_sell[0]
+    Data['Sell_price'] = buy_sell[1]
+    Data['Open_pos'] = buy_sell[2]
+    Data['live_pos'] = Data['Open_pos'].multiply(Data['Price'])
+    Data['funds'] = buy_sell[3]
+    
+    return Data
+
+def buy_sell_signal(data):
+    buy_signal = []
+    sell_signal = []
+    open_position = []
+    funds = [100000] * len(data)
+    last_funds = 100000
+    flag = 0
+
+    for i in range(len(data)):
+        if data['SMA50'][i] > data['SMA200'][i]:
+            if flag == 0:
+                flag = 1
+                buy_signal.append(data['Price'][i])
+                last_pos = last_funds / data['Price'][i]
+                funds[i] = last_funds
+                open_position.append(last_pos)
+                sell_signal.append(np.nan)
+            else:
+                buy_signal.append(np.nan)
+                last_funds = data['Price'][i] * last_pos
+                funds[i] = last_funds
+                open_position.append(last_pos)
+                sell_signal.append(np.nan)
+        elif data['SMA50'][i] < data['SMA200'][i]:
+            if flag == 1:
+                flag = 0
+                buy_signal.append(np.nan)
+                last_funds = last_pos * data['Price'][i]
+                funds[i] = last_funds
+                open_position.append(0)
+                sell_signal.append(data['Price'][i])
+            else:
+                buy_signal.append(np.nan)
+                funds[i] = last_funds
+                open_position.append(0)
+                sell_signal.append(np.nan)
+        else:
+            buy_signal.append(np.nan)
+            open_position.append(0)
+            sell_signal.append(np.nan)
+    return buy_signal, sell_signal, open_position, funds, flag
+
+def predict_today_price(data):
+    df_prediction = data.copy()
+    df_prediction = df_prediction.reset_index()
+    df_prediction['Date_num'] = pd.to_datetime(df_prediction['Date']).map(datetime.datetime.toordinal)
+    X = df_prediction['Date_num'].values.reshape(-1, 1)
+    y = df_prediction['Price'].values
+    model = LinearRegression()
+    model.fit(X, y)
+    today_date_num = datetime.datetime.now().toordinal()
+    predicted_price = model.predict([[today_date_num]])[0]
+    return predicted_price
+
 def create_orders_table(orders):
     if not orders:
-        # Show placeholder when no orders
         return html.Div([
             html.P("No orders yet", style={"color": "#888888", "textAlign": "center", "padding": "20px"}),
             html.Table(
@@ -211,7 +357,6 @@ def create_orders_table(orders):
             )
         ])
     
-    # Create a list of table rows for each order
     order_rows = []
     for order in reversed(orders):
         order_rows.append(
@@ -234,7 +379,6 @@ def create_orders_table(orders):
             )
         )
     
-    # Create and return the table with all order rows
     return html.Table(
         style={"width": "100%", "borderCollapse": "collapse"},
         children=[
