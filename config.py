@@ -1,13 +1,12 @@
 from queue import Queue
 from threading import Lock
-import pandas as pd
 import configparser
 import oandapyV20
 import oandapyV20.endpoints.pricing as pricing
-import os.path
+import os
 
-STRONG_SIGNAL_QUANTITY = 1000000000
-WEAK_SIGNAL_QUANTITY = 50000000
+STRONG_SIGNAL_QUANTITY = 100000
+WEAK_SIGNAL_QUANTITY = 50000
 SMA_50_WINDOW = 50
 SMA_200_WINDOW = 200
 RSI_WINDOW = 14

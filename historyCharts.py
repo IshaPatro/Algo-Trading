@@ -9,23 +9,60 @@ text_color = "#ffffff"
 grid_color = "#4d4d4d" 
 plot_bg_color = "#2d2d2d" 
 
+# def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-03", granularity="D", price="B"):
+#     """Fetch historical price data from OANDA using tpqoa"""
+#     try:
+#         api = tpqoa.tpqoa("oanda.cfg")
+#         historical_df = api.get_history(
+#             instrument=instrument,
+#             start=start,
+#             end=end,
+#             granularity=granularity,
+#             price=price
+#         )
+#         historical_df["time"] = historical_df.index
+#         return historical_df
+#     except Exception as e:
+#         print(f"Error fetching historical data: {e}")
+#         return pd.DataFrame()
+
+from oandapyV20.endpoints.instruments import InstrumentsCandles
+
 def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-03", granularity="D", price="B"):
-    """Fetch historical price data from OANDA using tpqoa"""
     try:
-        api = tpqoa.tpqoa("oanda.cfg")
-        historical_df = api.get_history(
-            instrument=instrument,
-            start=start,
-            end=end,
-            granularity=granularity,
-            price=price
-        )
-        historical_df["time"] = historical_df.index
+        params = {
+            "from": start,
+            "to": end,
+            "granularity": granularity,
+            "price": price
+        }
+
+        r = InstrumentsCandles(instrument=instrument, params=params)
+        response = config.client.request(r)
+        candles = response.get("candles", [])
+        data = []
+
+        for candle in candles:
+            row = {
+                "time": candle["time"],
+                "volume": candle["volume"],
+                "complete": candle["complete"]
+            }
+            for price_type in ["bid", "ask", "mid"]:
+                if price_type in candle:
+                    for key, value in candle[price_type].items():
+                        row[f"{price_type}_{key}"] = float(value)
+            data.append(row)
+
+        historical_df = pd.DataFrame(data)
+        historical_df["time"] = pd.to_datetime(historical_df["time"])
+        print("Historical DF: ", historical_df.columns)
         return historical_df
+
     except Exception as e:
         print(f"Error fetching historical data: {e}")
         return pd.DataFrame()
-
+    
 def create_historical_chart():
     """Create a candlestick chart with historical data"""
     try:
@@ -38,10 +75,10 @@ def create_historical_chart():
         fig_historical = go.Figure()
         fig_historical.add_trace(go.Candlestick(
             x=historical_df["time"],
-            open=historical_df["o"],
-            high=historical_df["h"],
-            low=historical_df["l"],
-            close=historical_df["c"],
+            open=historical_df["bid_o"],
+            high=historical_df["bid_h"],
+            low=historical_df["bid_l"],
+            close=historical_df["bid_c"],
             increasing_line_color='#00ff00',
             decreasing_line_color='#ff0000',
             name="Candlestick"
