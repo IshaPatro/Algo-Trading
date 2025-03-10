@@ -24,7 +24,6 @@ def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-0
         response = config.client.request(r)
         candles = response.get("candles", [])
         data = []
-
         for candle in candles:
             row = {
                 "time": candle["time"],
@@ -39,33 +38,11 @@ def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-0
 
         historical_df = pd.DataFrame(data)
         historical_df["time"] = pd.to_datetime(historical_df["time"])
-        print("Historical DF: ", historical_df.columns)
         return historical_df
 
     except Exception as e:
         print(f"Error fetching historical data: {e}")
         return pd.DataFrame()
-
-def fetch_stock_data():
-    end_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
-    
-    df = get_historical_data(instrument="EUR_USD", start=start_date, end=end_date)
-    
-    # Prepare the dataframe to match the format from yfinance
-    # Assuming we use mid_c as Close price
-    df = df.rename(columns={
-        'time': 'Date',
-        'mid_o': 'Open',
-        'mid_h': 'High',
-        'mid_l': 'Low',
-        'mid_c': 'Close',
-        'volume': 'Volume'
-    })
-    
-    df.set_index('Date', inplace=True)
-    df.dropna(how='any', inplace=True)
-    return df
 
 def prepare_prediction_data(df):
     SMA50 = pd.DataFrame()
@@ -131,80 +108,164 @@ def buy_sell_signal(data):
     return buy_signal, sell_signal, open_position, funds, flag
 
 def predict_today_price(data):
-    df_prediction = data.copy()
-    df_prediction = df_prediction.reset_index()
-    df_prediction['Date_num'] = pd.to_datetime(df_prediction['Date']).map(datetime.datetime.toordinal)
-    X = df_prediction['Date_num'].values.reshape(-1, 1)
-    y = df_prediction['Price'].values
+    if data.empty or 'Price' not in data.columns:
+        print("Error: Empty data or missing Price column")
+        return 1.0800
+    
+    last_30_days = data.tail(30).copy()
+    
+    X = np.array(range(len(last_30_days))).reshape(-1, 1)
+    y = last_30_days['Price'].values
+    
     model = LinearRegression()
     model.fit(X, y)
-    today_date_num = datetime.datetime.now().toordinal()
-    predicted_price = model.predict([[today_date_num]])[0]
+    
+    next_day = np.array([[len(last_30_days)]])
+    predicted_price = model.predict(next_day)[0]
+    
     return predicted_price
 
-# Define the same color scheme as historyCharts.py
-dark_bg_color = "#1e1e1e"
-text_color = "#ffffff" 
-grid_color = "#4d4d4d" 
-plot_bg_color = "#2d2d2d" 
-
-def create_prediction_graph(prediction_data, today_predicted_price):
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+def fetch_stock_data():
     
-    figure = {
-        'data': [
-            go.Scatter(x=prediction_data.index, y=prediction_data['Price'], name='EUR/USD', line=dict(color='purple', width=2)),
-            go.Scatter(x=prediction_data.index, y=prediction_data['SMA50'], name='SMA50', line=dict(color='orange', width=1.5)),
-            go.Scatter(x=prediction_data.index, y=prediction_data['SMA200'], name='SMA200', line=dict(color='#1E90FF', width=1.5)),
-            go.Scatter(x=prediction_data.index, y=prediction_data['Buy_price'], mode='markers', marker=dict(color='green', symbol='triangle-up', size=10), name='Buy Signal'),
-            go.Scatter(x=prediction_data.index, y=prediction_data['Sell_price'], mode='markers', marker=dict(color='red', symbol='triangle-down', size=10), name='Sell Signal'),
-            go.Scatter(x=[today], y=[today_predicted_price], mode='markers', marker=dict(color='yellow', size=15), name='Today\'s Prediction')
-        ],
-        'layout': go.Layout(
-            title={
-                "text": "EUR/USD Price Prediction",
-                "font": {"color": text_color}
-            },
-            xaxis={
-                "title": "Date",
-                "color": text_color,
-                "gridcolor": grid_color,
-                "linecolor": grid_color,
-                "zerolinecolor": grid_color,
-            },
-            yaxis={
-                "title": "Price",
-                "color": text_color,
-                "gridcolor": grid_color,
-                "linecolor": grid_color,
-                "zerolinecolor": grid_color,
-            },
-            hovermode='closest',
-            plot_bgcolor=plot_bg_color,
-            paper_bgcolor=dark_bg_color,
-            font=dict(color=text_color),
-            legend={"font": {"color": text_color}},
-            height=400,
-            margin={"l": 40, "r": 40, "t": 40, "b": 40},
-            xaxis_rangeslider_visible=False,
-            template="plotly_dark"
+    end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
+    
+    print(f"Attempting to download historical data from {start_date} to {end_date}")
+    
+    try:
+        df = get_historical_data(
+            instrument=config.instrument,
+            start=start_date,
+            end=end_date,
+            granularity="D",
+            price="M"
         )
-    }
+        
+        print("Historical DF columns:", df.columns.tolist())
+        print("Historical DF shape:", df.shape)
+        
+        if df.empty:
+            raise Exception("No historical data available")
+        
+        prediction_df = pd.DataFrame()
+        
+        prediction_df['Open'] = df['mid_o'].astype(float)
+        prediction_df['High'] = df['mid_h'].astype(float)
+        prediction_df['Low'] = df['mid_l'].astype(float)
+        prediction_df['Close'] = df['mid_c'].astype(float)
+        prediction_df['Volume'] = df['volume'].astype(float)
+        prediction_df['Adj Close'] = df['mid_c'].astype(float)
+        
+        prediction_df.index = pd.to_datetime(df['time'])
+        
+        prediction_df = prediction_df.sort_index()
+        
+        if len(prediction_df) < 200:
+            raise Exception(f"Not enough data points for prediction: {len(prediction_df)}")
+        
+        prediction_df.dropna(how='any', inplace=True)
+        print(f"Successfully prepared prediction data with {len(prediction_df)} rows")
+        
+        return prediction_df
+        
+    except Exception as e:
+        print(f"Error in fetch_stock_data: {e}")
+        raise
+
+
+def create_prediction_graph(data, today_prediction):
+    fig = go.Figure()
     
-    # Wrap the figure in a dcc.Graph component with the same styling as historyCharts
+    # Add price line
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Price'],
+        mode='lines',
+        name='Price',
+        line=dict(color='purple', width=2)
+    ))
+    
+    # Add SMA50 line
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['SMA50'],
+        mode='lines',
+        name='SMA50',
+        line=dict(color='orange', width=2)
+    ))
+    
+    # Add SMA200 line
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['SMA200'],
+        mode='lines',
+        name='SMA200',
+        line=dict(color='blue', width=2)
+    ))
+    
+    # Add buy signals
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Buy_price'],
+        mode='markers',
+        name='Buy Signal',
+        marker=dict(color='#00FF00', size=8, symbol='triangle-up')
+    ))
+    
+    # Add sell signals
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Sell_price'],
+        mode='markers',
+        name='Sell Signal',
+        marker=dict(color='#FF0000', size=8, symbol='triangle-down')
+    ))
+    
+    # Add today's prediction point
+    last_date = data.index[-1]
+    next_date = last_date + pd.Timedelta(days=1)
+    
+    fig.add_trace(go.Scatter(
+        x=[next_date],
+        y=[today_prediction],
+        mode='markers',
+        name='Prediction',
+        marker=dict(color='#FFFF00', size=12, symbol='star')
+    ))
+    
+    # Update layout to match historical chart styling
+    fig.update_layout(
+        plot_bgcolor='#1e1e1e',
+        paper_bgcolor='#2c2c2c',
+        font=dict(color='#FFFFFF'),
+        margin=dict(l=40, r=40, t=40, b=40),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=10)
+        ),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='#333333',
+            showline=True,
+            linecolor='#444444',
+            title=None
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#333333',
+            showline=True,
+            linecolor='#444444',
+            title=None
+        ),
+        height=500
+    )
+    
     return dcc.Graph(
-        id="prediction-graph",
-        figure=figure,
-        style={
-            "backgroundColor": dark_bg_color,
-            "border": "1px solid #4d4d4d",
-            "borderRadius": "5px",
-            "margin": "10px",
-            "padding": "15px",
-        },
-        config={
-            'displayModeBar': True,
-            'displaylogo': False,
-            'modeBarButtonsToRemove': ['lasso2d', 'select2d']
-        }
+        figure=fig,
+        config={'displayModeBar': False},
+        style={'height': '100%', 'width': '100%'}
     )

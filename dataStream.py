@@ -55,14 +55,13 @@ def execute_trading_strategy(df, bid_price, ask_price, previous_price_above_sma_
             
             current_price_above_sma_50 = current_price > current_sma_50
             
-            if previous_price_above_sma_50 is not None:
-                if not previous_price_above_sma_50 and current_price_above_sma_50:
-                    if current_rsi > 50:
-                        place_order("BUY", ask_price, config.WEAK_SIGNAL_QUANTITY, "Break Above SMA-50")
+            # if previous_price_above_sma_50 is not None:
+            #     if not previous_price_above_sma_50 and current_price_above_sma_50:
+            #         if current_rsi > 50:
+            #             place_order("BUY", ask_price, config.WEAK_SIGNAL_QUANTITY, "Break Above SMA-50")
                 
-                elif previous_price_above_sma_50 and not current_price_above_sma_50:
-                    if current_rsi < 50:
-                        place_order("SELL", bid_price, config.WEAK_SIGNAL_QUANTITY, "Break Below SMA-50")
+            #     elif previous_price_above_sma_50 and not current_price_above_sma_50:
+            #         place_order("SELL", bid_price, config.WEAK_SIGNAL_QUANTITY, "Break Below SMA-50")
             
             if prev_price < prev_sma_50 and current_price > current_sma_50 and current_price_above_sma_50:
                 if abs(prev_price - prev_sma_50) / prev_sma_50 < 0.0005:
@@ -115,7 +114,11 @@ def stream_data(stop_event):
                         
                         df["RSI"] = calculate_rsi(df["Mid"], window=config.RSI_WINDOW)
                         
-                        previous_price_above_sma_50 = execute_trading_strategy(df, bid, ask, previous_price_above_sma_50)
+                        try:
+                            previous_price_above_sma_50 = execute_trading_strategy(df, bid, ask, previous_price_above_sma_50)
+                            print(f"Trading strategy executed - Current price: {mid}, SMA_50: {df['SMA_50'].iloc[-1]}, Above SMA_50: {previous_price_above_sma_50}")
+                        except Exception as strategy_error:
+                            print(f"Error executing trading strategy: {strategy_error}")
                     
                     orderbook = {
                         "bids": price["bids"],
@@ -125,6 +128,6 @@ def stream_data(stop_event):
                     config.orderbook_queue.put(orderbook)
             
         except Exception as e:
-            pass
+            print(f"Error in data stream: {e}")
         
         time.sleep(1)

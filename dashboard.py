@@ -5,14 +5,15 @@ from dash.dependencies import Input, Output, State
 import config
 import priceCharts
 import historyCharts
+from historyCharts import get_historical_data
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import plotly.graph_objs as go
-import yfinance as yf
 import warnings
 import predict
-from predict import predict_today_price
+from predict import predict_today_price, fetch_stock_data
+from historyCharts import get_historical_data
 
 warnings.filterwarnings('ignore')
 
@@ -64,9 +65,8 @@ def create_app():
         today_predicted_price = predict_today_price(prediction_data)
     except Exception as e:
         print(f"Error preparing prediction data: {e}")
-        # Provide fallback values
         prediction_data = pd.DataFrame()
-        today_predicted_price = 1.0800  # Fallback value for EUR/USD
+        today_predicted_price = 1.0800
     
     app.layout = html.Div(
         style={
@@ -87,7 +87,6 @@ def create_app():
                     "backgroundColor": "#2c2c2c",
                     "padding": "20px",
                     "borderRadius": "8px",
-                    "width": "95%",
                     "marginBottom": "20px",
                     "display": "flex",
                     "justifyContent": "space-between"
@@ -256,30 +255,52 @@ def create_app():
     
     return app
 
-def fetch_stock_data():
-    try:
-        stock = "EURUSD=X"
-        end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-        start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
+# def fetch_stock_data():
+    
+#     end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+#     start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
+    
+#     print(f"Attempting to download historical data from {start_date} to {end_date}")
+    
+#     try:
+#         df = get_historical_data(
+#             instrument=config.instrument,
+#             start=start_date,
+#             end=end_date,
+#             granularity="D",
+#             price="M"
+#         )
         
-        df = yf.download(stock, start=start_date, end=end_date)
+#         print("Historical DF columns:", df.columns.tolist())
+#         print("Historical DF shape:", df.shape)
         
-        # Check if DataFrame is empty
-        if df.empty:
-            print("Warning: Downloaded stock data is empty")
-            return pd.DataFrame()
-            
-        # Ensure index is properly set
-        if not isinstance(df.index, pd.DatetimeIndex):
-            df.reset_index(inplace=True)
-            if 'Date' in df.columns:
-                df.set_index('Date', inplace=True)
-            
-        df.dropna(how='any', inplace=True)
-        return df
-    except Exception as e:
-        print(f"Error in fetch_stock_data: {e}")
-        return pd.DataFrame()
+#         if df.empty:
+#             raise Exception("No historical data available")
+        
+#         prediction_df = pd.DataFrame()
+        
+#         prediction_df['Open'] = df['mid_o'].astype(float)
+#         prediction_df['High'] = df['mid_h'].astype(float)
+#         prediction_df['Low'] = df['mid_l'].astype(float)
+#         prediction_df['Close'] = df['mid_c'].astype(float)
+#         prediction_df['Volume'] = df['volume'].astype(float)
+#         prediction_df['Adj Close'] = df['mid_c'].astype(float)
+        
+#         prediction_df.index = pd.to_datetime(df['time'])
+        
+#         prediction_df = prediction_df.sort_index()
+        
+#         if len(prediction_df) < 200:
+#             raise Exception(f"Not enough data points for prediction: {len(prediction_df)}")
+        
+#         prediction_df.dropna(how='any', inplace=True)
+#         print(f"Successfully prepared prediction data with {len(prediction_df)} rows")
+        
+#         return prediction_df
+        
+#     except Exception as e:
+#         print(f"Error in fetch_stock_data: {e}")
+#         raise
 
 def prepare_prediction_data(df):
     SMA50 = pd.DataFrame()
@@ -371,25 +392,28 @@ def create_orders_table(orders):
     
     order_rows = []
     for order in reversed(orders):
-        order_rows.append(
-            html.Tr(
-                style={"borderBottom": "1px solid #333"},
-                children=[
-                    html.Td(order.get("order_id", "N/A"), style={"padding": "8px"}),
-                    html.Td(order.get("timestamp", "N/A"), style={"padding": "8px"}),
-                    html.Td(
-                        order.get("type", "N/A"), 
-                        style={
-                            "padding": "8px", 
-                            "color": "green" if order.get("type") == "BUY" else "red"
-                        }
-                    ),
-                    html.Td(f"{float(order.get('price', 0)):.5f}", style={"padding": "8px", "textAlign": "right"}),
-                    html.Td(f"{int(float(order.get('quantity', 0)))}", style={"padding": "8px", "textAlign": "right"}),
-                    html.Td(order.get("strategy", "N/A"), style={"padding": "8px"}),
-                ]
+        try:
+            order_rows.append(
+                html.Tr(
+                    style={"borderBottom": "1px solid #333"},
+                    children=[
+                        html.Td(str(order.get("order_id", "N/A")), style={"padding": "8px"}),
+                        html.Td(str(order.get("timestamp", "N/A")), style={"padding": "8px"}),
+                        html.Td(
+                            str(order.get("type", "N/A")), 
+                            style={
+                                "padding": "8px", 
+                                "color": "green" if order.get("type") == "BUY" else "red"
+                            }
+                        ),
+                        html.Td(f"{float(order.get('price', 0)):.5f}", style={"padding": "8px", "textAlign": "right"}),
+                        html.Td(f"{int(float(order.get('quantity', 0)))}", style={"padding": "8px", "textAlign": "right"}),
+                        html.Td(str(order.get("strategy", "N/A")), style={"padding": "8px"}),
+                    ]
+                )
             )
-        )
+        except Exception as e:
+            print(f"Error creating order row: {e}, Order: {order}")
     
     return html.Table(
         style={"width": "100%", "borderCollapse": "collapse"},
