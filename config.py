@@ -41,12 +41,6 @@ else:
     access_token = os.getenv("access_token")
     account_type = os.getenv("account_type")
 
-# config = configparser.ConfigParser()
-# config.read("oanda.cfg")
-# account_id = config["oanda"]["account_id"]
-# access_token = config["oanda"]["access_token"]
-# account_type = config["oanda"]["account_type"]
-
 client = oandapyV20.API(access_token=access_token)
                         
 instrument = "EUR_USD"
