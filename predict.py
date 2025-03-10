@@ -176,7 +176,6 @@ def fetch_stock_data():
 def create_prediction_graph(data, today_prediction):
     fig = go.Figure()
     
-    # Add price line
     fig.add_trace(go.Scatter(
         x=data.index,
         y=data['Price'],
@@ -185,7 +184,6 @@ def create_prediction_graph(data, today_prediction):
         line=dict(color='purple', width=2)
     ))
     
-    # Add SMA50 line
     fig.add_trace(go.Scatter(
         x=data.index,
         y=data['SMA50'],
@@ -194,7 +192,6 @@ def create_prediction_graph(data, today_prediction):
         line=dict(color='orange', width=2)
     ))
     
-    # Add SMA200 line
     fig.add_trace(go.Scatter(
         x=data.index,
         y=data['SMA200'],
@@ -203,7 +200,6 @@ def create_prediction_graph(data, today_prediction):
         line=dict(color='blue', width=2)
     ))
     
-    # Add buy signals
     fig.add_trace(go.Scatter(
         x=data.index,
         y=data['Buy_price'],
@@ -212,7 +208,6 @@ def create_prediction_graph(data, today_prediction):
         marker=dict(color='#00FF00', size=8, symbol='triangle-up')
     ))
     
-    # Add sell signals
     fig.add_trace(go.Scatter(
         x=data.index,
         y=data['Sell_price'],
@@ -221,7 +216,6 @@ def create_prediction_graph(data, today_prediction):
         marker=dict(color='#FF0000', size=8, symbol='triangle-down')
     ))
     
-    # Add today's prediction point
     last_date = data.index[-1]
     next_date = last_date + pd.Timedelta(days=1)
     
@@ -233,7 +227,6 @@ def create_prediction_graph(data, today_prediction):
         marker=dict(color='#FFFF00', size=12, symbol='star')
     ))
     
-    # Update layout to match historical chart styling
     fig.update_layout(
         plot_bgcolor='#1e1e1e',
         paper_bgcolor='#2c2c2c',

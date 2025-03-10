@@ -55,13 +55,7 @@ def execute_trading_strategy(df, bid_price, ask_price, previous_price_above_sma_
             
             current_price_above_sma_50 = current_price > current_sma_50
             
-            # if previous_price_above_sma_50 is not None:
-            #     if not previous_price_above_sma_50 and current_price_above_sma_50:
-            #         if current_rsi > 50:
-            #             place_order("BUY", ask_price, config.WEAK_SIGNAL_QUANTITY, "Break Above SMA-50")
-                
-            #     elif previous_price_above_sma_50 and not current_price_above_sma_50:
-            #         place_order("SELL", bid_price, config.WEAK_SIGNAL_QUANTITY, "Break Below SMA-50")
+
             
             if prev_price < prev_sma_50 and current_price > current_sma_50 and current_price_above_sma_50:
                 if abs(prev_price - prev_sma_50) / prev_sma_50 < 0.0005:

@@ -89,7 +89,6 @@ def register_callbacks(app):
         
         df["Timestamp"] = pd.to_datetime(df["Timestamp"])
         
-        # Filter data to show only the last 10 minutes
         ten_minutes_ago = datetime.datetime.now() - datetime.timedelta(minutes=10)
         df = df[df["Timestamp"] >= ten_minutes_ago]
         

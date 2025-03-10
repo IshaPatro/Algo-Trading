@@ -46,7 +46,6 @@ def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-0
         return pd.DataFrame()
     
 def create_historical_chart():
-    """Create a candlestick chart with historical data"""
     try:
         historical_df = get_historical_data(instrument=config.instrument)
         
@@ -107,7 +106,6 @@ def create_historical_chart():
                       style={"color": text_color, "textAlign": "center", "padding": "20px"})
 
 def create_historical_chart_layout():
-    """Create the layout for the historical chart section"""
     return html.Div([
         html.H2("Historical Data", style={"marginTop": "20px", "marginBottom": "15px", "color": text_color}),
         create_historical_chart()
