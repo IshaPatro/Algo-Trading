@@ -182,7 +182,8 @@ def create_prediction_graph(data, today_prediction):
         y=data['Price'],
         mode='lines',
         name='Price',
-        line=dict(color=price_color, width=2)
+        line=dict(color=price_color, width=2),
+        hovertemplate='Date: %{x|%Y-%m-%d}<br>Price: %{y:.4f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
@@ -190,7 +191,8 @@ def create_prediction_graph(data, today_prediction):
         y=data['SMA50'],
         mode='lines',
         name='SMA50',
-        line=dict(color=sma_50_color, width=2)
+        line=dict(color=sma_50_color, width=2),
+        hovertemplate='Date: %{x|%Y-%m-%d}<br>SMA50: %{y:.4f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
@@ -198,7 +200,8 @@ def create_prediction_graph(data, today_prediction):
         y=data['SMA200'],
         mode='lines',
         name='SMA200',
-        line=dict(color=sma_200_color, width=2)
+        line=dict(color=sma_200_color, width=2),
+        hovertemplate='Date: %{x|%Y-%m-%d}<br>SMA200: %{y:.4f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
@@ -206,7 +209,8 @@ def create_prediction_graph(data, today_prediction):
         y=data['Buy_price'],
         mode='markers',
         name='Buy Signal',
-        marker=dict(color=buy_color, size=8, symbol='triangle-up')
+        marker=dict(color=buy_color, size=10, symbol='triangle-up', line=dict(color='white', width=1)),
+        hovertemplate='Date: %{x|%Y-%m-%d}<br>Buy Price: %{y:.4f}<extra></extra>'
     ))
     
     fig.add_trace(go.Scatter(
@@ -214,7 +218,8 @@ def create_prediction_graph(data, today_prediction):
         y=data['Sell_price'],
         mode='markers',
         name='Sell Signal',
-        marker=dict(color=sell_color, size=8, symbol='triangle-down')
+        marker=dict(color=sell_color, size=10, symbol='triangle-down', line=dict(color='white', width=1)),
+        hovertemplate='Date: %{x|%Y-%m-%d}<br>Sell Price: %{y:.4f}<extra></extra>'
     ))
     
     last_date = data.index[-1]
@@ -225,7 +230,8 @@ def create_prediction_graph(data, today_prediction):
         y=[today_prediction],
         mode='markers',
         name='Prediction',
-        marker=dict(color='#FFFF00', size=12, symbol='star')
+        marker=dict(color='#FFFF00', size=12, symbol='star'),
+        hovertemplate='Date: %{x|%Y-%m-%d}<br>Predicted Price: %{y:.4f}<extra></extra>'
     ))
     
     fig.update_layout(

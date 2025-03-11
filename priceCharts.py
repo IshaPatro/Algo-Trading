@@ -93,11 +93,19 @@ def register_callbacks(app):
             df["Volatility"] = df["Price_Change"].rolling(window=10).std().fillna(0) * 10000
             df["SMA_50"] = df["Bid"].rolling(window=config.SMA_50_WINDOW, min_periods=1).mean()
             df["SMA_200"] = df["Bid"].rolling(window=config.SMA_200_WINDOW, min_periods=50).mean()
+           
+            df["SMA_50_prev"] = df["SMA_50"].shift(1)
+            df["SMA_200_prev"] = df["SMA_200"].shift(1)
+            df["buy_signal"] = ((df["SMA_50"] > df["SMA_200"]) & (df["SMA_50_prev"] <= df["SMA_200_prev"]))
+            
+            df["sell_signal"] = ((df["SMA_50"] < df["SMA_200"]) & (df["SMA_50_prev"] >= df["SMA_200_prev"]))
         else:
             df["Price_Change"] = 0
             df["Volatility"] = 0
             df["SMA_50"] = df["Bid"]
             df["SMA_200"] = df["Bid"]
+            df["buy_signal"] = False
+            df["sell_signal"] = False
 
         bid_ask_figure = {
             "data": [
@@ -217,6 +225,30 @@ def register_callbacks(app):
                     name="SMA 200",
                     line={"color": sma_200_color},
                     connectgaps=True
+                ),
+                go.Scatter(
+                    x=df[df["buy_signal"]]["Timestamp"],
+                    y=df[df["buy_signal"]]["Bid"],
+                    mode="markers",
+                    name="Buy Signal",
+                    marker={
+                        "symbol": "triangle-up",
+                        "size": 15,
+                        "color": buy_color,
+                        "line": {"width": 2, "color": "white"}
+                    }
+                ),
+                go.Scatter(
+                    x=df[df["sell_signal"]]["Timestamp"],
+                    y=df[df["sell_signal"]]["Bid"],
+                    mode="markers",
+                    name="Sell Signal",
+                    marker={
+                        "symbol": "triangle-down",
+                        "size": 15,
+                        "color": sell_color,
+                        "line": {"width": 2, "color": "white"}
+                    }
                 ),
             ],
             "layout": go.Layout(
