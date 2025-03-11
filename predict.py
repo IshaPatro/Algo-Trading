@@ -228,8 +228,8 @@ def create_prediction_graph(data, today_prediction):
     ))
     
     fig.update_layout(
-        plot_bgcolor='#1e1e1e',
-        paper_bgcolor='#2c2c2c',
+        plot_bgcolor='#2c2c2c',
+        paper_bgcolor='#1e1e1e',
         font=dict(color='#FFFFFF'),
         margin=dict(l=40, r=40, t=40, b=40),
         legend=dict(
