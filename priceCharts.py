@@ -203,7 +203,7 @@ def register_callbacks(app):
                     y=df["Bid"],
                     mode="lines",
                     name="Price",
-                    line={"color": "#00ff00"},
+                    line={"color": "purple"},
                     connectgaps=True
                 ),
                 go.Scatter(

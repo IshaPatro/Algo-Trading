@@ -244,10 +244,10 @@ def create_app():
         total_pnl_styled = create_pnl_display(updated_metrics)
         
         buy_avg_price = updated_metrics.get('buy_avg_price', 0)
-        buy_avg_display = f"{buy_avg_price:.5f}"
+        buy_avg_display = f"{buy_avg_price:.5f}" if updated_metrics.get('total_buy_quantity', 0) > 0 else "N/A"
         
         sell_avg_price = updated_metrics.get('sell_avg_price', 0)
-        sell_avg_display = f"{sell_avg_price:.5f}"
+        sell_avg_display = f"{sell_avg_price:.5f}" if updated_metrics.get('total_sell_quantity', 0) > 0 else "N/A"
         
         return orders_table, orderbook_table, new_orders, updated_metrics, latest_orderbook, total_pnl_styled, buy_avg_display, sell_avg_display
     
@@ -255,48 +255,7 @@ def create_app():
     
     return app
 
-# def fetch_stock_data():
-    
-#     end_date = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-#     start_date = (datetime.datetime.now() - datetime.timedelta(days=5*365)).strftime("%Y-%m-%d")
-    
-#     print(f"Attempting to download historical data from {start_date} to {end_date}")
-    
-#     try:
-#         df = get_historical_data(
-#             instrument=config.instrument,
-#             start=start_date,
-#             end=end_date,
-#             granularity="D",
-#             price="M"
-#         )
-        
-#         print("Historical DF columns:", df.columns.tolist())
-#         print("Historical DF shape:", df.shape)
-        
-#         if df.empty:
-#             raise Exception("No historical data available")
-        
-#         prediction_df = pd.DataFrame()
-        
-#         prediction_df['Open'] = df['mid_o'].astype(float)
-#         prediction_df['High'] = df['mid_h'].astype(float)
-#         prediction_df['Low'] = df['mid_l'].astype(float)
-#         prediction_df['Close'] = df['mid_c'].astype(float)
-#         prediction_df['Volume'] = df['volume'].astype(float)
-#         prediction_df['Adj Close'] = df['mid_c'].astype(float)
-        
-#         prediction_df.index = pd.to_datetime(df['time'])
-        
-#         prediction_df = prediction_df.sort_index()
-        
-#         if len(prediction_df) < 200:
-#             raise Exception(f"Not enough data points for prediction: {len(prediction_df)}")
-        
-#         prediction_df.dropna(how='any', inplace=True)
-#         print(f"Successfully prepared prediction data with {len(prediction_df)} rows")
-        
-#         return prediction_df
+
         
 #     except Exception as e:
 #         print(f"Error in fetch_stock_data: {e}")
