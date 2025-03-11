@@ -6,11 +6,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import config
 from threading import Thread, Event
-
-dark_bg_color = "#1e1e1e"
-plot_bg_color = "#2c2c2c"
-text_color = "#ffffff"
-grid_color = "#444444"
+from colors import *
 
 data = []
 stop_event = Event()
@@ -110,7 +106,7 @@ def register_callbacks(app):
                     y=df["Bid"],
                     mode="lines",
                     name="Bid Price",
-                    line={"color": "#00ff00"},
+                    line={"color": bid_color},
                     connectgaps=True
                 ),
                 go.Scatter(
@@ -118,7 +114,7 @@ def register_callbacks(app):
                     y=df["Ask"],
                     mode="lines",
                     name="Ask Price",
-                    line={"color": "#ff0000"},
+                    line={"color": ask_color},
                     connectgaps=True
                 ),
             ],
@@ -136,7 +132,7 @@ def register_callbacks(app):
                     "gridcolor": grid_color,
                     "linecolor": grid_color,
                     "zerolinecolor": grid_color,
-                    "tickfont": {"size": 8, "color": "#ffffff"},
+                    "tickfont": {"size": 8, "color": text_color},
                     "tickformat": ".5f",
                     "showgrid": True,
                     "gridwidth": 1,
@@ -161,9 +157,9 @@ def register_callbacks(app):
                     y=df["Spread"],
                     mode="lines",
                     name="Spread",
-                    line={"color": "#1f77b4"},
+                    line={"color": spread_color},
                     fill="tozeroy",
-                    fillcolor="rgba(31, 119, 180, 0.2)",
+                    fillcolor=spread_fill_color,
                     connectgaps=True
                 ),
             ],
@@ -203,7 +199,7 @@ def register_callbacks(app):
                     y=df["Bid"],
                     mode="lines",
                     name="Price",
-                    line={"color": "purple"},
+                    line={"color": price_color},
                     connectgaps=True
                 ),
                 go.Scatter(
@@ -211,7 +207,7 @@ def register_callbacks(app):
                     y=df["SMA_50"],
                     mode="lines",
                     name="SMA 50",
-                    line={"color": "#ffa500"},
+                    line={"color": sma_50_color},
                     connectgaps=True
                 ),
                 go.Scatter(
@@ -219,7 +215,7 @@ def register_callbacks(app):
                     y=df["SMA_200"],
                     mode="lines",
                     name="SMA 200",
-                    line={"color": "#1f77b4"},
+                    line={"color": sma_200_color},
                     connectgaps=True
                 ),
             ],
@@ -237,7 +233,7 @@ def register_callbacks(app):
                     "gridcolor": grid_color,
                     "linecolor": grid_color,
                     "zerolinecolor": grid_color,
-                    "tickfont": {"size": 8, "color": "#ffffff"},
+                    "tickfont": {"size": 8, "color": text_color},
                     "tickformat": ".5f",
                     "showgrid": True,
                     "gridwidth": 1,

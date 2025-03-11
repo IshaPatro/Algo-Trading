@@ -8,6 +8,7 @@ from dash import dcc, html
 from oandapyV20 import API
 from oandapyV20.endpoints.instruments import InstrumentsCandles
 import config
+from colors import *
 
 warnings.filterwarnings('ignore')
 
@@ -181,7 +182,7 @@ def create_prediction_graph(data, today_prediction):
         y=data['Price'],
         mode='lines',
         name='Price',
-        line=dict(color='purple', width=2)
+        line=dict(color=price_color, width=2)
     ))
     
     fig.add_trace(go.Scatter(
@@ -189,7 +190,7 @@ def create_prediction_graph(data, today_prediction):
         y=data['SMA50'],
         mode='lines',
         name='SMA50',
-        line=dict(color='orange', width=2)
+        line=dict(color=sma_50_color, width=2)
     ))
     
     fig.add_trace(go.Scatter(
@@ -197,7 +198,7 @@ def create_prediction_graph(data, today_prediction):
         y=data['SMA200'],
         mode='lines',
         name='SMA200',
-        line=dict(color='blue', width=2)
+        line=dict(color=sma_200_color, width=2)
     ))
     
     fig.add_trace(go.Scatter(
@@ -205,7 +206,7 @@ def create_prediction_graph(data, today_prediction):
         y=data['Buy_price'],
         mode='markers',
         name='Buy Signal',
-        marker=dict(color='#00FF00', size=8, symbol='triangle-up')
+        marker=dict(color=buy_color, size=8, symbol='triangle-up')
     ))
     
     fig.add_trace(go.Scatter(
@@ -213,7 +214,7 @@ def create_prediction_graph(data, today_prediction):
         y=data['Sell_price'],
         mode='markers',
         name='Sell Signal',
-        marker=dict(color='#FF0000', size=8, symbol='triangle-down')
+        marker=dict(color=sell_color, size=8, symbol='triangle-down')
     ))
     
     last_date = data.index[-1]
@@ -228,9 +229,9 @@ def create_prediction_graph(data, today_prediction):
     ))
     
     fig.update_layout(
-        plot_bgcolor='#2c2c2c',
-        paper_bgcolor='#1e1e1e',
-        font=dict(color='#FFFFFF'),
+        plot_bgcolor=plot_bg_color,
+        paper_bgcolor=dark_bg_color,
+        font=dict(color=text_color),
         margin=dict(l=40, r=40, t=40, b=40),
         legend=dict(
             orientation="h",
@@ -242,16 +243,16 @@ def create_prediction_graph(data, today_prediction):
         ),
         xaxis=dict(
             showgrid=True,
-            gridcolor='#333333',
+            gridcolor=grid_color,
             showline=True,
-            linecolor='#444444',
+            linecolor=grid_line_color,
             title=None
         ),
         yaxis=dict(
             showgrid=True,
-            gridcolor='#333333',
+            gridcolor=grid_color,
             showline=True,
-            linecolor='#444444',
+            linecolor=grid_line_color,
             title=None
         ),
         height=500

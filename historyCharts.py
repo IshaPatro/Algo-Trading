@@ -4,11 +4,7 @@ import tpqoa
 import config
 from dash import dcc, html
 from oandapyV20.endpoints.instruments import InstrumentsCandles
-
-dark_bg_color = "#1e1e1e"
-text_color = "#ffffff" 
-grid_color = "#4d4d4d" 
-plot_bg_color = "#2d2d2d" 
+from colors import *
 
 def get_historical_data(instrument="EUR_USD", start="2024-01-01", end="2025-03-03", granularity="D", price="B"):
     try:

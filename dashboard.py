@@ -14,6 +14,7 @@ import warnings
 import predict
 from predict import predict_today_price, fetch_stock_data
 from historyCharts import get_historical_data
+from colors import *
 
 warnings.filterwarnings('ignore')
 
@@ -70,8 +71,8 @@ def create_app():
     
     app.layout = html.Div(
         style={
-            "backgroundColor": "#1e1e1e",
-            "color": "#ffffff",
+            "backgroundColor": dark_bg_color,
+            "color": text_color,
             "height": "100vh",
             "padding": "20px",
             "fontFamily": "Arial, sans-serif"
@@ -84,7 +85,7 @@ def create_app():
             
             html.Div(
                 style={
-                    "backgroundColor": "#2c2c2c",
+                    "backgroundColor": plot_bg_color,
                     "padding": "20px",
                     "borderRadius": "8px",
                     "marginBottom": "20px",
@@ -100,7 +101,7 @@ def create_app():
                         },
                         children=[
                             html.H3("Buy Avg Price", style={"margin": "0", "fontSize": "18px"}),
-                            html.H2(id="buy-avg-price", style={"margin": "10px 0", "fontSize": "24px", "color": "green"})
+                            html.H2(id="buy-avg-price", style={"margin": "10px 0", "fontSize": "24px", "color": buy_color})
                         ]
                     ),
                     html.Div(
@@ -122,7 +123,7 @@ def create_app():
                         },
                         children=[
                             html.H3("Sell Avg Price", style={"margin": "0", "fontSize": "18px"}),
-                            html.H2(id="sell-avg-price", style={"margin": "10px 0", "fontSize": "24px", "color": "red"})
+                            html.H2(id="sell-avg-price", style={"margin": "10px 0", "fontSize": "24px", "color": sell_color})
                         ]
                     )
                 ]
@@ -130,7 +131,7 @@ def create_app():
             
             html.Div(
                 style={
-                    "backgroundColor": "#2c2c2c",
+                    "backgroundColor": plot_bg_color,
                     "padding": "20px",
                     "borderRadius": "8px",
                     "marginBottom": "20px"
@@ -143,7 +144,7 @@ def create_app():
             
             html.Div(
                 style={
-                    "backgroundColor": "#2c2c2c",
+                    "backgroundColor": plot_bg_color,
                     "padding": "20px",
                     "borderRadius": "8px",
                     "marginBottom": "20px",
@@ -164,7 +165,7 @@ def create_app():
             historyCharts.create_historical_chart_layout(),
             html.Div(
                 style={
-                    "backgroundColor": "#2c2c2c",
+                    "backgroundColor": plot_bg_color,
                     "padding": "20px",
                     "borderRadius": "8px",
                     "marginBottom": "20px"
@@ -172,9 +173,9 @@ def create_app():
                 children=[
                     html.H2("EUR/USD Price Prediction", style={"marginTop": "0", "marginBottom": "15px"}),
                     html.H3(f"Today's predicted price: ${today_predicted_price:.4f}", 
-                        style={'textAlign': 'center', 'color': '#FFFFFF', 'marginTop': '15px'}),
+                        style={'textAlign': 'center', 'color': text_color, 'marginTop': '15px'}),
                     predict.create_prediction_graph(prediction_data, today_predicted_price) if not prediction_data.empty else 
-                    html.Div("Prediction data not available", style={"color": "#888888", "textAlign": "center", "padding": "20px"})
+                    html.Div("Prediction data not available", style={"color": inactive_text_color, "textAlign": "center", "padding": "20px"})
                 ]
             ),
         ]
@@ -327,7 +328,7 @@ def buy_sell_signal(data):
 def create_orders_table(orders):
     if not orders:
         return html.Div([
-            html.P("No orders yet", style={"color": "#888888", "textAlign": "center", "padding": "20px"}),
+            html.P("No orders yet", style={"color": inactive_text_color, "textAlign": "center", "padding": "20px"}),
             html.Table(
                 style={"width": "100%", "borderCollapse": "collapse"},
                 children=[
@@ -362,7 +363,7 @@ def create_orders_table(orders):
                             str(order.get("type", "N/A")), 
                             style={
                                 "padding": "8px", 
-                                "color": "green" if order.get("type") == "BUY" else "red"
+                                "color": buy_color if order.get("type") == "BUY" else sell_color
                             }
                         ),
                         html.Td(f"{float(order.get('price', 0)):.5f}", style={"padding": "8px", "textAlign": "right"}),
@@ -397,7 +398,7 @@ def create_orders_table(orders):
 def create_orderbook_table(orderbook):
     if not orderbook or (not orderbook.get("bids") and not orderbook.get("asks")):
         return html.Div([
-            html.P("Waiting for orderbook data...", style={"color": "#888888", "textAlign": "center", "padding": "20px"}),
+            html.P("Waiting for orderbook data...", style={"color": inactive_text_color, "textAlign": "center", "padding": "20px"}),
             html.Table(
                 style={"width": "100%", "borderCollapse": "collapse"},
                 children=[
@@ -439,7 +440,7 @@ def create_orderbook_table(orderbook):
             row_cells.append(
                 html.Td(
                     price_display, 
-                    style={"padding": "8px", "textAlign": "right", "color": "green"}
+                    style={"padding": "8px", "textAlign": "right", "color": buy_color}
                 )
             )
         else:
@@ -465,7 +466,7 @@ def create_orderbook_table(orderbook):
             row_cells.append(
                 html.Td(
                     price_display, 
-                    style={"padding": "8px", "textAlign": "right", "color": "red"}
+                    style={"padding": "8px", "textAlign": "right", "color": sell_color}
                 )
             )
         else:
@@ -509,7 +510,7 @@ def create_orderbook_table(orderbook):
 def create_pnl_display(metrics):
     pnl_value = metrics.get('total_pnl', 0)
     total_pnl_display = f"${pnl_value:.2f}"
-    pnl_color = "green" if pnl_value >= 0 else "red"
+    pnl_color = buy_color if pnl_value >= 0 else sell_color
     
     return html.Span(
         total_pnl_display, 
