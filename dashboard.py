@@ -157,7 +157,7 @@ def create_app():
                 ]
             ),
             
-            dcc.Store(id="orders-store", data=[]),
+            dcc.Store(id="orders-store", data=config.orders_history),
             dcc.Store(id="metrics-store", data=config.trading_metrics),
             dcc.Store(id="orderbook-store", data=initial_orderbook),
             
@@ -207,6 +207,9 @@ def create_app():
                 new_order = config.orders_queue.get()
                 if new_order and isinstance(new_order, dict):
                     new_orders.append(new_order)
+                    # Add to config.orders_history for persistence
+                    if new_order not in config.orders_history:
+                        config.orders_history.append(new_order)
                     orders_updated = True
                     print(f"New order received and added to display: {new_order}")
             except Exception as e:
