@@ -1,15 +1,12 @@
-dash==2.18.2
+dash==2.9.3
 dash-core-components==2.0.0
 dash-html-components==2.0.0
 dash-table==5.0.0
-Flask==3.0.3
-gunicorn==23.0.0
-numpy==2.2.3
+plotly==5.14.1
+pandas==2.0.0
+numpy==1.24.3
+scikit-learn==1.2.2
 oandapyV20==0.7.2
-pandas==2.2.3
-plotly==6.0.0
-python-dotenv==1.0.1
-requests==2.32.3
-scikit-learn==1.5.1
-yfinance==0.2.22
-tpqoa @ git+https://github.com/yhilpisch/tpqoa.git@4a79f30b7095642844ef99741d9bfcb952e394db
+tpqoa==0.0.9
+apscheduler==3.10.1
+pytz==2023.3

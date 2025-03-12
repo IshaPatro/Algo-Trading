@@ -223,7 +223,7 @@ def create_prediction_graph(data, today_prediction):
     ))
     
     last_date = data.index[-1]
-    next_date = last_date + pd.Timedelta(days=1)
+    next_date = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     
     fig.add_trace(go.Scatter(
         x=[next_date],

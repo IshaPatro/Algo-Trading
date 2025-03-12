@@ -3,6 +3,7 @@ from dataStream import stream_data
 from dashboard import create_app as create_dashboard_app
 import dash
 import os
+from scheduler import initialize_scheduler
 
 def initialize_data_stream():
     stop_event = Event()
@@ -16,6 +17,9 @@ app = create_dashboard_app()
 server = app.server
 
 stop_event = initialize_data_stream()
+
+# Initialize the scheduler for daily reset at 12am EST
+scheduler = initialize_scheduler()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8050))

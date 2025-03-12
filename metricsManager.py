@@ -19,5 +19,3 @@ def update_metrics(order_type, price, quantity, strategy):
         
         config.metrics_queue.put(metrics)
         config.trading_metrics.update(metrics)
-        print(f"Metrics updated for {config.metrics_queue} order.")
-        print(f"Metrics updated for {config.trading_metrics} order.")

@@ -161,7 +161,7 @@ def create_app():
             dcc.Store(id="metrics-store", data=config.trading_metrics),
             dcc.Store(id="orderbook-store", data=initial_orderbook),
             
-            dcc.Interval(id="interval-component", interval=500, n_intervals=0),
+            dcc.Interval(id="interval-component", interval=2000, n_intervals=0),
             historyCharts.create_historical_chart_layout(),
             html.Div(
                 style={
@@ -211,7 +211,7 @@ def create_app():
                     if new_order not in config.orders_history:
                         config.orders_history.append(new_order)
                     orders_updated = True
-                    print(f"New order received and added to display: {new_order}")
+                    # Order received and added to display
             except Exception as e:
                 print(f"Error processing order from queue: {e}")
         
@@ -223,7 +223,7 @@ def create_app():
                 metrics_update = config.metrics_queue.get()
                 if metrics_update and isinstance(metrics_update, dict):
                     updated_metrics.update(metrics_update)
-                    print(f"Metrics updated: {metrics_update}")
+                    # Metrics updated
             except Exception as e:
                 print(f"Error processing metrics from queue: {e}")
                 
