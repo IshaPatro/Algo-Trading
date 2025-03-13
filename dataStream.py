@@ -14,23 +14,17 @@ def execute_trading_strategy(df, bid_price, ask_price, previous_price_above_sma_
     current_rsi = df["RSI"].iloc[-1] if "RSI" in df else 50
     if len(df) > 1:
         prev_sma_50 = df["SMA_50"].iloc[-2]
-        prev_sma_200 = df["SMA_200"].iloc[-2]
+        prev_sma_200 = df["SMA_200"].iloc[-2] if "SMA_200" in df else None
         prev_price = df["Mid"].iloc[-2]
         
-        if prev_sma_50 < prev_sma_200 and current_sma_50 > current_sma_200:
-            place_order("BUY", ask_price, config.STRONG_SIGNAL_QUANTITY, "Golden Cross")
-        
-        elif prev_sma_50 > prev_sma_200 and current_sma_50 < current_sma_200:
-            place_order("SELL", bid_price, config.STRONG_SIGNAL_QUANTITY, "Death Cross")
+        if "SMA_200" in df and prev_sma_200 is not None and current_sma_200 is not None:
+            if prev_sma_50 < prev_sma_200 and current_sma_50 > current_sma_200:
+                place_order("BUY", ask_price, config.STRONG_SIGNAL_QUANTITY, "Golden Cross")
+            
+            elif prev_sma_50 > prev_sma_200 and current_sma_50 < current_sma_200:
+                place_order("SELL", bid_price, config.STRONG_SIGNAL_QUANTITY, "Death Cross")
         
         current_price_above_sma_50 = current_price > current_sma_50
-        # if prev_price < prev_sma_50 and current_price > current_sma_50 and current_price_above_sma_50:
-        #     if abs(prev_price - prev_sma_50) / prev_sma_50 < 0.0005:
-        #         place_order("BUY", ask_price, config.WEAK_SIGNAL_QUANTITY, "SMA-50 Support")
-        
-        # if prev_price > prev_sma_50 and current_price < current_sma_50 and not current_price_above_sma_50:
-        #     if abs(prev_price - prev_sma_50) / prev_sma_50 < 0.0005:
-        #         place_order("SELL", bid_price, config.WEAK_SIGNAL_QUANTITY, "SMA-50 Resistance")
         
         return current_price_above_sma_50
     else:

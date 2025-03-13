@@ -98,16 +98,19 @@ def create_historical_chart():
         )
     except Exception as e:
         print(f"Error creating historical chart: {e}")
-        return html.Div(f"Error creating historical chart: {str(e)}", 
+        return html.Div("Error creating historical chart", 
                       style={"color": text_color, "textAlign": "center", "padding": "20px"})
 
 def create_historical_chart_layout():
-    return html.Div([
-        html.H2("Historical Data", style={"marginTop": "20px", "marginBottom": "15px", "color": text_color}),
-        create_historical_chart()
-    ], style={
-        "backgroundColor": plot_bg_color,
-        "padding": "15px",
-        "borderRadius": "8px",
-        "marginBottom": "20px"
-    })
+    return html.Div(
+        style={
+            "backgroundColor": plot_bg_color,
+            "padding": "20px",
+            "borderRadius": "8px",
+            "marginBottom": "20px"
+        },
+        children=[
+            html.H2("Historical Data", style={"marginTop": "0", "marginBottom": "15px"}),
+            create_historical_chart()
+        ]
+    )

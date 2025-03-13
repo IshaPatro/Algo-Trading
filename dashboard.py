@@ -16,6 +16,7 @@ from predict import predict_today_price, fetch_stock_data
 from historyCharts import get_historical_data
 from colors import *
 from orderHistory import load_orders, save_orders
+from metricsManager import initialize_metrics_from_history
 
 warnings.filterwarnings('ignore')
 
@@ -58,6 +59,11 @@ def create_app():
     }
     
     config.orderbook_queue.put(initial_orderbook)
+    
+    loaded_orders = load_orders()
+    config.orders_history = loaded_orders
+    
+    initialize_metrics_from_history()
     
     priceCharts.initialize_data_thread()
     
@@ -193,331 +199,132 @@ def create_app():
             Output("buy-avg-price", "children"),
             Output("sell-avg-price", "children"),
         ],
-        Input("interval-component", "n_intervals"),
-        [
-            State("orders-store", "data"),
-            State("metrics-store", "data"),
-            State("orderbook-store", "data")
-        ]
+        [Input("interval-component", "n_intervals")],
+        [State("orders-store", "data"), State("metrics-store", "data"), State("orderbook-store", "data")]
     )
-    def update_dashboard(n, stored_orders, stored_metrics, stored_orderbook):
-        new_orders = list(stored_orders) if stored_orders else []
-        orders_updated = False
-        while not config.orders_queue.empty():
-            try:
+    def update_metrics(n, orders_data, metrics_data, orderbook_data):
+        ctx = dash.callback_context
+        
+        if not ctx.triggered:
+            return dash.no_update
+        
+        try:
+            if not config.orders_queue.empty():
                 new_order = config.orders_queue.get()
-                if new_order and isinstance(new_order, dict):
-                    new_orders.append(new_order)
-                    # Add to config.orders_history for persistence
-                    if new_order not in config.orders_history:
-                        config.orders_history.append(new_order)
-                        save_orders(config.orders_history)
-                    orders_updated = True
-                    # Order received and added to display
-            except Exception as e:
-                print(f"Error processing order from queue: {e}")
-        
-        with config.data_lock:
-            updated_metrics = config.trading_metrics.copy()
-        
-        while not config.metrics_queue.empty():
-            try:
-                metrics_update = config.metrics_queue.get()
-                if metrics_update and isinstance(metrics_update, dict):
-                    updated_metrics.update(metrics_update)
-                    # Metrics updated
-            except Exception as e:
-                print(f"Error processing metrics from queue: {e}")
-                
-        latest_orderbook = dict(stored_orderbook) if stored_orderbook else {"bids": [], "asks": [], "timestamp": datetime.datetime.now()}
-        orderbook_updated = False
-        
-        while not config.orderbook_queue.empty():
-            try:
-                new_book = config.orderbook_queue.get()
-                if new_book and (new_book.get("bids") or new_book.get("asks")):
-                    latest_orderbook = {
-                        "bids": new_book.get("bids", []),
-                        "asks": new_book.get("asks", []),
-                        "timestamp": new_book.get("timestamp", datetime.datetime.now())
-                    }
-                    orderbook_updated = True
-            except Exception as e:
-                print(f"Error processing orderbook from queue: {e}")
-                
-        orders_table = create_orders_table(new_orders)
-        orderbook_table = create_orderbook_table(latest_orderbook)
-        total_pnl_styled = create_pnl_display(updated_metrics)
-        
-        buy_avg_price = updated_metrics.get('buy_avg_price', 0)
-        buy_avg_display = f"{buy_avg_price:.5f}" if updated_metrics.get('total_buy_quantity', 0) > 0 else "N/A"
-        
-        sell_avg_price = updated_metrics.get('sell_avg_price', 0)
-        sell_avg_display = f"{sell_avg_price:.5f}" if updated_metrics.get('total_sell_quantity', 0) > 0 else "N/A"
-        
-        return orders_table, orderbook_table, new_orders, updated_metrics, latest_orderbook, total_pnl_styled, buy_avg_display, sell_avg_display
-    
-    priceCharts.register_callbacks(app)
+                if new_order not in orders_data:
+                    orders_data.append(new_order)
+            
+            if not config.metrics_queue.empty():
+                metrics_data = config.metrics_queue.get()
+            
+            if not config.orderbook_queue.empty():
+                orderbook_data = config.orderbook_queue.get()
+            
+            orders_table = create_orders_table(orders_data)
+            orderbook_table = create_orderbook_table(orderbook_data)
+            
+            total_pnl = f"${metrics_data['total_pnl']:.2f}"
+            buy_avg_price = f"${metrics_data['buy_avg_price']:.5f}"
+            sell_avg_price = f"${metrics_data['sell_avg_price']:.5f}"
+            
+            return orders_table, orderbook_table, orders_data, metrics_data, orderbook_data, total_pnl, buy_avg_price, sell_avg_price
+            
+        except Exception as e:
+            print(f"Error updating metrics: {e}")
+            return dash.no_update
     
     return app
 
-
-        
-#     except Exception as e:
-#         print(f"Error in fetch_stock_data: {e}")
-#         raise
-
-def prepare_prediction_data(df):
-    SMA50 = pd.DataFrame()
-    SMA50['Price'] = df['Close'].rolling(window=50).mean()
-    SMA200 = pd.DataFrame()
-    SMA200['Price'] = df['Close'].rolling(window=200).mean()
-
-    Data = pd.DataFrame()
-    Data['Price'] = df['Close']
-    Data['SMA50'] = SMA50['Price']
-    Data['SMA200'] = SMA200['Price']
-    Data['funds'] = 100000 
-    
-    buy_sell = buy_sell_signal(Data)
-    Data['Buy_price'] = buy_sell[0]
-    Data['Sell_price'] = buy_sell[1]
-    Data['Open_pos'] = buy_sell[2]
-    Data['live_pos'] = Data['Open_pos'].multiply(Data['Price'])
-    Data['funds'] = buy_sell[3]
-    
-    return Data
-
-def buy_sell_signal(data):
-    buy_signal = []
-    sell_signal = []
-    open_position = []
-    funds = [100000] * len(data)
-    last_funds = 100000
-    flag = 0
-
-    for i in range(len(data)):
-        if data['SMA50'][i] > data['SMA200'][i]:
-            if flag == 0:
-                flag = 1
-                buy_signal.append(data['Price'][i])
-                last_pos = last_funds / data['Price'][i]
-                funds[i] = last_funds
-                open_position.append(last_pos)
-                sell_signal.append(np.nan)
-            else:
-                buy_signal.append(np.nan)
-                last_funds = data['Price'][i] * last_pos
-                funds[i] = last_funds
-                open_position.append(last_pos)
-                sell_signal.append(np.nan)
-        elif data['SMA50'][i] < data['SMA200'][i]:
-            if flag == 1:
-                flag = 0
-                buy_signal.append(np.nan)
-                last_funds = last_pos * data['Price'][i]
-                funds[i] = last_funds
-                open_position.append(0)
-                sell_signal.append(data['Price'][i])
-            else:
-                buy_signal.append(np.nan)
-                funds[i] = last_funds
-                open_position.append(0)
-                sell_signal.append(np.nan)
-        else:
-            buy_signal.append(np.nan)
-            open_position.append(0)
-            sell_signal.append(np.nan)
-    return buy_signal, sell_signal, open_position, funds, flag
-
 def create_orders_table(orders):
     if not orders:
-        return html.Div([
-            html.P("No orders yet", style={"color": inactive_text_color, "textAlign": "center", "padding": "20px"}),
-            html.Table(
-                style={"width": "100%", "borderCollapse": "collapse"},
-                children=[
-                    html.Thead(
-                        style={"borderBottom": "2px solid #444"},
-                        children=[
-                            html.Tr([
-                                html.Th("Order ID", style={"padding": "10px", "textAlign": "left"}),
-                                html.Th("Timestamp", style={"padding": "10px", "textAlign": "left"}),
-                                html.Th("Type", style={"padding": "10px", "textAlign": "left"}),
-                                html.Th("Price", style={"padding": "10px", "textAlign": "right"}),
-                                html.Th("Quantity", style={"padding": "10px", "textAlign": "right"}),
-                                html.Th("Strategy", style={"padding": "10px", "textAlign": "left"}),
-                            ])
-                        ]
-                    ),
-                    html.Tbody()
-                ]
-            )
-        ])
+        return html.Div("No orders yet", style={"color": inactive_text_color, "textAlign": "center", "padding": "20px"})
     
-    order_rows = []
+    header = html.Div(
+        style={
+            "display": "grid",
+            "gridTemplateColumns": "1fr 1fr 1fr 1fr 1fr",
+            "borderBottom": f"1px solid {border_color}",
+            "padding": "10px 0",
+            "fontWeight": "bold"
+        },
+        children=[
+            html.Div("Time", style={"textAlign": "left"}),
+            html.Div("Type", style={"textAlign": "center"}),
+            html.Div("Quantity", style={"textAlign": "right"}),
+            html.Div("Price", style={"textAlign": "right"}),
+            html.Div("Strategy", style={"textAlign": "center"})
+        ]
+    )
+    
+    rows = []
     for order in reversed(orders):
         try:
-            order_rows.append(
-                html.Tr(
-                    style={"borderBottom": "1px solid #333"},
-                    children=[
-                        html.Td(str(order.get("order_id", "N/A")), style={"padding": "8px"}),
-                        html.Td(str(order.get("timestamp", "N/A")), style={"padding": "8px"}),
-                        html.Td(
-                            str(order.get("type", "N/A")), 
-                            style={
-                                "padding": "8px", 
-                                "color": buy_color if order.get("type") == "BUY" else sell_color
-                            }
-                        ),
-                        html.Td(f"{float(order.get('price', 0)):.5f}", style={"padding": "8px", "textAlign": "right"}),
-                        html.Td(f"{int(float(order.get('quantity', 0)))}", style={"padding": "8px", "textAlign": "right"}),
-                        html.Td(str(order.get("strategy", "N/A")), style={"padding": "8px"}),
-                    ]
-                )
-            )
-        except Exception as e:
-            print(f"Error creating order row: {e}, Order: {order}")
-    
-    return html.Table(
-        style={"width": "100%", "borderCollapse": "collapse"},
-        children=[
-            html.Thead(
-                style={"borderBottom": "2px solid #444"},
+            order_time = datetime.datetime.fromisoformat(order["timestamp"]).strftime("%H:%M:%S")
+            order_type = order["type"]
+            quantity = order["quantity"]
+            price = float(order["price"])
+            strategy = order.get("strategy", "")
+            
+            type_color = buy_color if order_type == "BUY" else sell_color
+            
+            row = html.Div(
+                style={
+                    "display": "grid",
+                    "gridTemplateColumns": "1fr 1fr 1fr 1fr 1fr",
+                    "borderBottom": f"1px solid {border_color}",
+                    "padding": "8px 0"
+                },
                 children=[
-                    html.Tr([
-                        html.Th("Order ID", style={"padding": "10px", "textAlign": "left"}),
-                        html.Th("Timestamp", style={"padding": "10px", "textAlign": "left"}),
-                        html.Th("Type", style={"padding": "10px", "textAlign": "left"}),
-                        html.Th("Price", style={"padding": "10px", "textAlign": "right"}),
-                        html.Th("Quantity", style={"padding": "10px", "textAlign": "right"}),
-                        html.Th("Strategy", style={"padding": "10px", "textAlign": "left"}),
-                    ])
+                    html.Div(order_time, style={"textAlign": "left"}),
+                    html.Div(order_type, style={"textAlign": "center", "color": type_color, "fontWeight": "bold"}),
+                    html.Div(f"{quantity:,}", style={"textAlign": "right"}),
+                    html.Div(f"${price:.5f}", style={"textAlign": "right"}),
+                    html.Div(strategy, style={"textAlign": "center"})
                 ]
-            ),
-            html.Tbody(children=order_rows)
-        ]
-    )
+            )
+            rows.append(row)
+        except Exception as e:
+            print(f"Error rendering order row: {e}")
+    
+    return html.Div([header, html.Div(rows)])
 
 def create_orderbook_table(orderbook):
-    if not orderbook or (not orderbook.get("bids") and not orderbook.get("asks")):
-        return html.Div([
-            html.P("Waiting for orderbook data...", style={"color": inactive_text_color, "textAlign": "center", "padding": "20px"}),
-            html.Table(
-                style={"width": "100%", "borderCollapse": "collapse"},
-                children=[
-                    html.Thead(
-                        style={"borderBottom": "2px solid #444"},
-                        children=[
-                            html.Tr([
-                                html.Th("Bid Price", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
-                                html.Th("Bid Liquidity", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
-                                html.Th("Ask Price", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
-                                html.Th("Ask Liquidity", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
-                            ])
-                        ]
-                    ),
-                    html.Tbody()
-                ]
-            )
-        ])
+    if not orderbook or "bids" not in orderbook or "asks" not in orderbook:
+        return html.Div("Orderbook data not available", style={"color": inactive_text_color, "textAlign": "center", "padding": "20px"})
     
-    timestamp_str = orderbook.get("timestamp", "")
-    if isinstance(timestamp_str, datetime.datetime):
-        timestamp_str = timestamp_str.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    bids = orderbook["bids"][:5] if len(orderbook["bids"]) > 5 else orderbook["bids"]
+    asks = orderbook["asks"][:5] if len(orderbook["asks"]) > 5 else orderbook["asks"]
     
-    bids = orderbook.get("bids", [])
-    asks = orderbook.get("asks", [])
-    max_rows = max(len(bids), len(asks), 1)
+    asks = list(reversed(asks))
     
-    orderbook_rows = []
-    for i in range(max_rows):
-        row_cells = []
-        
-        if i < len(bids):
-            try:
-                bid_price = float(bids[i]['price'])
-                price_display = f"{bid_price:.5f}"
-            except (ValueError, KeyError):
-                price_display = "N/A"
-            
-            row_cells.append(
-                html.Td(
-                    price_display, 
-                    style={"padding": "8px", "textAlign": "right", "color": buy_color}
-                )
-            )
-        else:
-            row_cells.append(html.Td("", style={"padding": "8px"}))
-        
-        if i < len(bids):
-            row_cells.append(
-                html.Td(
-                    bids[i].get('liquidity', 'N/A'), 
-                    style={"padding": "8px", "textAlign": "right"}
-                )
-            )
-        else:
-            row_cells.append(html.Td("", style={"padding": "8px"}))
-        
-        if i < len(asks):
-            try:
-                ask_price = float(asks[i]['price'])
-                price_display = f"{ask_price:.5f}"
-            except (ValueError, KeyError):
-                price_display = "N/A"
-            
-            row_cells.append(
-                html.Td(
-                    price_display, 
-                    style={"padding": "8px", "textAlign": "right", "color": sell_color}
-                )
-            )
-        else:
-            row_cells.append(html.Td("", style={"padding": "8px"}))
-        
-        if i < len(asks):
-            row_cells.append(
-                html.Td(
-                    asks[i].get('liquidity', 'N/A'), 
-                    style={"padding": "8px", "textAlign": "right"}
-                )
-            )
-        else:
-            row_cells.append(html.Td("", style={"padding": "8px"}))
-        
-        orderbook_rows.append(html.Tr(
-            style={"borderBottom": "1px solid #333"},
-            children=row_cells
-        ))
+    rows = []
     
-    return html.Table(
-        style={"width": "100%", "borderCollapse": "collapse"},
+    for ask in asks:
+        price = float(ask["price"])
+        liquidity = int(ask["liquidity"]) if "liquidity" in ask else 0
+        
+        row = html.Div(
+            style={
+                "display": "grid",
+                "gridTemplateColumns": "1fr 1fr",
+                "padding": "5px 0"
+            },
+            children=[
+                html.Div(f"${price:.5f}", style={"textAlign": "right", "color": sell_color, "fontWeight": "bold"}),
+                html.Div(f"{liquidity:,}", style={"textAlign": "right", "paddingLeft": "20px"})
+            ]
+        )
+        rows.append(row)
+    
+    header = html.Div(
+        style={
+            "display": "grid",
+            "gridTemplateColumns": "1fr 1fr",
+            "borderBottom": f"1px solid {border_color}",
+            "borderTop": f"1px solid {border_color}",
+            "padding": "8px 0",
+            "fontWeight": "bold"
+        },
         children=[
-            html.Thead(
-                style={"borderBottom": "2px solid #444"},
-                children=[
-                    html.Tr([
-                        html.Th("Bid Price", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
-                        html.Th("Bid Liquidity", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
-                        html.Th("Ask Price", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
-                        html.Th("Ask Liquidity", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
-                    ])
-                ]
-            ),
-            html.Tbody(
-                children=orderbook_rows
-            )
-        ]
-    )
-
-def create_pnl_display(metrics):
-    pnl_value = metrics.get('total_pnl', 0)
-    total_pnl_display = f"${pnl_value:.2f}"
-    pnl_color = buy_color if pnl_value >= 0 else sell_color
-    
-    return html.Span(
-        total_pnl_display, 
-        style={"color": pnl_color}
-    )
+            html.Div("Price", style={"textAlign": "right"}),
+            html.Div("Liquidity
