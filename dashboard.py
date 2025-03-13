@@ -15,6 +15,7 @@ import predict
 from predict import predict_today_price, fetch_stock_data
 from historyCharts import get_historical_data
 from colors import *
+from orderHistory import load_orders, save_orders
 
 warnings.filterwarnings('ignore')
 
@@ -157,7 +158,7 @@ def create_app():
                 ]
             ),
             
-            dcc.Store(id="orders-store", data=config.orders_history),
+            dcc.Store(id="orders-store", data=load_orders()),
             dcc.Store(id="metrics-store", data=config.trading_metrics),
             dcc.Store(id="orderbook-store", data=initial_orderbook),
             
@@ -210,6 +211,7 @@ def create_app():
                     # Add to config.orders_history for persistence
                     if new_order not in config.orders_history:
                         config.orders_history.append(new_order)
+                        save_orders(config.orders_history)
                     orders_updated = True
                     # Order received and added to display
             except Exception as e:

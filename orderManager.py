@@ -2,6 +2,7 @@ import datetime
 import config
 from metricsManager import update_metrics
 import oandapyV20.endpoints.orders as orders
+from orderHistory import save_orders
 
 def place_order(order_type, price, quantity, strategy):
     try:
@@ -48,6 +49,11 @@ def place_order(order_type, price, quantity, strategy):
             
             config.orders_queue.put(order_record)
             print(f"Order successfully placed and added to queue: {order_record}")
+            
+
+            if order_record not in config.orders_history:
+                config.orders_history.append(order_record)
+                save_orders(config.orders_history)
             
             update_metrics(order_type, execution_price, quantity, strategy)
             return True

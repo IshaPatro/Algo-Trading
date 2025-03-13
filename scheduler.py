@@ -4,14 +4,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import config
 from threading import Event
+from orderHistory import clear_order_history
 
 reset_event = Event()
 
 def reset_application_data():
-    """
-    Reset all application data at midnight EST
-    This function clears all stored data and resets metrics
-    """
     print(f"Resetting application data at {datetime.datetime.now(pytz.timezone('US/Eastern'))}")
 
     with config.data_lock:
@@ -28,14 +25,15 @@ def reset_application_data():
             "buy_avg_price": 0,
             "sell_avg_price": 0,
         }
+        
+
+        config.metrics_queue.put(config.trading_metrics.copy())
     
+    clear_order_history()
     reset_event.set()
     print("Application data has been reset successfully")
 
 def initialize_scheduler():
-    """
-    Initialize the scheduler to reset the application at midnight EST
-    """
     scheduler = BackgroundScheduler()
     
     scheduler.add_job(
