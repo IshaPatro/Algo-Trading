@@ -20,6 +20,7 @@ sell_color = "#ff0000"
 border_color = "#444444"
 inactive_text_color = "#888888"
 rsi_color = "#ff9900"
+positive_pnl_color = "#00ff00"
 
 grid_line_color = "#444444"
 zero_line_color = "#444444"

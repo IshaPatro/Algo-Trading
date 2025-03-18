@@ -1,4 +1,6 @@
 import config
+import datetime
+from orderHistory import clear_order_history
 
 last_order_count = 0
 
@@ -22,11 +24,11 @@ def update_metrics(order_type, price, quantity, strategy):
     if min_quantity > 0 and metrics["buy_avg_price"] > 0 and metrics["sell_avg_price"] > 0:
         metrics["total_pnl"] = (metrics["sell_avg_price"] - metrics["buy_avg_price"]) * min_quantity
     
+    config.metrics_queue.put(metrics)
+    config.trading_metrics.update(metrics)
+    
     current_order_count = len(config.orders_history)
-    if current_order_count > last_order_count:
-        config.metrics_queue.put(metrics)
-        config.trading_metrics.update(metrics)
-        last_order_count = current_order_count
+    last_order_count = current_order_count
 
 def initialize_metrics_from_history():
     config.trading_metrics = {
@@ -66,3 +68,18 @@ def initialize_metrics_from_history():
     print(f"Metrics initialized from {len(config.orders_history)} historical orders")
     global last_order_count
     last_order_count = len(config.orders_history)
+
+def reset_metrics():
+    config.trading_metrics = {
+        "total_pnl": 0,
+        "total_buy_quantity": 0,
+        "total_sell_quantity": 0,
+        "total_buy_value": 0,
+        "total_sell_value": 0,
+        "buy_avg_price": 0,
+        "sell_avg_price": 0,
+    }
+    global last_order_count
+    last_order_count = 0
+    clear_order_history()
+    print(f"Trading metrics reset at {datetime.datetime.now()}")

@@ -6,12 +6,29 @@ from indicators import calculate_rsi
 import config
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.pricing as pricing
+from metricsManager import reset_metrics
 
 def execute_trading_strategy(df, bid_price, ask_price, previous_price_above_sma_50):
     current_price = df["Mid"].iloc[-1]
     current_sma_50 = df["SMA_50"].iloc[-1]
     current_sma_200 = df["SMA_200"].iloc[-1] if "SMA_200" in df else None
     current_rsi = df["RSI"].iloc[-1] if "RSI" in df else 50
+    
+    if config.trading_metrics["buy_avg_price"] > 0 and config.trading_metrics["total_buy_quantity"] > config.trading_metrics["total_sell_quantity"]:
+        profit_threshold = config.trading_metrics["buy_avg_price"] + config.PROFIT_THRESHOLD_PIPS
+        loss_threshold = config.trading_metrics["buy_avg_price"] - config.LOSS_THRESHOLD_PIPS
+        remaining_quantity = config.trading_metrics["total_buy_quantity"] - config.trading_metrics["total_sell_quantity"]
+        
+        if current_price >= profit_threshold and remaining_quantity > 0:
+            place_order("SELL", bid_price, remaining_quantity, "Profit Booking")
+            reset_metrics()
+            return previous_price_above_sma_50
+        
+        elif current_price <= loss_threshold and remaining_quantity > 0:
+            place_order("SELL", bid_price, remaining_quantity, "Stop Loss")
+            reset_metrics()
+            return previous_price_above_sma_50
+    
     if len(df) > 1:
         prev_sma_50 = df["SMA_50"].iloc[-2]
         prev_sma_200 = df["SMA_200"].iloc[-2] if "SMA_200" in df else None

@@ -15,6 +15,7 @@ import predict
 from predict import predict_today_price, fetch_stock_data
 from historyCharts import get_historical_data
 from colors import *
+from colors import dark_bg_color, plot_bg_color, text_color, grid_color, border_color, inactive_text_color, positive_pnl_color, buy_color, sell_color
 from orderHistory import load_orders, save_orders
 from metricsManager import initialize_metrics_from_history
 
@@ -67,9 +68,12 @@ def create_app():
     
     priceCharts.initialize_data_thread()
     
+    # Register the price charts callbacks
+    priceCharts.register_callbacks(app)
+    
     try:
         stock_data = fetch_stock_data()
-        prediction_data = prepare_prediction_data(stock_data)
+        prediction_data = predict.prepare_prediction_data(stock_data)
         today_predicted_price = predict_today_price(prediction_data)
     except Exception as e:
         print(f"Error preparing prediction data: {e}")
@@ -209,21 +213,34 @@ def create_app():
             return dash.no_update
         
         try:
-            if not config.orders_queue.empty():
+            updated = False
+            
+            while not config.orders_queue.empty():
                 new_order = config.orders_queue.get()
                 if new_order not in orders_data:
                     orders_data.append(new_order)
+                    updated = True
             
             if not config.metrics_queue.empty():
                 metrics_data = config.metrics_queue.get()
+                updated = True
             
             if not config.orderbook_queue.empty():
                 orderbook_data = config.orderbook_queue.get()
+                updated = True
+            
+            if not updated and len(config.orders_history) > len(orders_data):
+                orders_data = config.orders_history.copy()
+                updated = True
+            
+            if not updated and metrics_data != config.trading_metrics:
+                metrics_data = config.trading_metrics.copy()
+                updated = True
             
             orders_table = create_orders_table(orders_data)
             orderbook_table = create_orderbook_table(orderbook_data)
             
-            total_pnl = f"${metrics_data['total_pnl']:.2f}"
+            total_pnl = create_pnl_display(metrics_data)
             buy_avg_price = f"${metrics_data['buy_avg_price']:.5f}"
             sell_avg_price = f"${metrics_data['sell_avg_price']:.5f}"
             
@@ -289,42 +306,111 @@ def create_orders_table(orders):
     return html.Div([header, html.Div(rows)])
 
 def create_orderbook_table(orderbook):
-    if not orderbook or "bids" not in orderbook or "asks" not in orderbook:
-        return html.Div("Orderbook data not available", style={"color": inactive_text_color, "textAlign": "center", "padding": "20px"})
+    if not orderbook or (not orderbook.get("bids") and not orderbook.get("asks")):
+        return html.Div([
+            html.P("Waiting for orderbook data...", style={"color": "#888888", "textAlign": "center", "padding": "20px"}),
+            html.Table(
+                style={"width": "100%", "borderCollapse": "collapse"},
+                children=[
+                    html.Thead(
+                        style={"borderBottom": "2px solid #444"},
+                        children=[
+                            html.Tr([
+                                html.Th("Bid Price", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
+                                html.Th("Bid Liquidity", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
+                                html.Th("Ask Price", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
+                            ])
+                        ]
+                    ),
+                    html.Tbody()
+                ]
+            )
+        ])
     
-    bids = orderbook["bids"][:5] if len(orderbook["bids"]) > 5 else orderbook["bids"]
-    asks = orderbook["asks"][:5] if len(orderbook["asks"]) > 5 else orderbook["asks"]
+    timestamp_str = orderbook.get("timestamp", "")
+    if isinstance(timestamp_str, datetime.datetime):
+        timestamp_str = timestamp_str.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     
-    asks = list(reversed(asks))
+    bids = orderbook.get("bids", [])
+    asks = orderbook.get("asks", [])
+    max_rows = max(len(bids), len(asks), 1)
     
-    rows = []
-    
-    for ask in asks:
-        price = float(ask["price"])
-        liquidity = int(ask["liquidity"]) if "liquidity" in ask else 0
+    orderbook_rows = []
+    for i in range(max_rows):
+        row_cells = []
         
-        row = html.Div(
-            style={
-                "display": "grid",
-                "gridTemplateColumns": "1fr 1fr",
-                "padding": "5px 0"
-            },
-            children=[
-                html.Div(f"${price:.5f}", style={"textAlign": "right", "color": sell_color, "fontWeight": "bold"}),
-                html.Div(f"{liquidity:,}", style={"textAlign": "right", "paddingLeft": "20px"})
-            ]
-        )
-        rows.append(row)
+        if i < len(bids):
+            try:
+                bid_price = float(bids[i]['price'])
+                price_display = f"{bid_price:.5f}"
+            except (ValueError, KeyError):
+                price_display = "N/A"
+            
+            row_cells.append(
+                html.Td(
+                    price_display, 
+                    style={"padding": "8px", "textAlign": "right", "color": positive_pnl_color}
+                )
+            )
+        else:
+            row_cells.append(html.Td("", style={"padding": "8px"}))
+        
+        if i < len(bids):
+            row_cells.append(
+                html.Td(
+                    bids[i].get('liquidity', 'N/A'), 
+                    style={"padding": "8px", "textAlign": "right"}
+                )
+            )
+        else:
+            row_cells.append(html.Td("", style={"padding": "8px"}))
+        
+        if i < len(asks):
+            try:
+                ask_price = float(asks[i]['price'])
+                price_display = f"{ask_price:.5f}"
+            except (ValueError, KeyError):
+                price_display = "N/A"
+            
+            row_cells.append(
+                html.Td(
+                    price_display, 
+                    style={"padding": "8px", "textAlign": "right", "color": "red"}
+                )
+            )
+        else:
+            row_cells.append(html.Td("", style={"padding": "8px"}))
+        
+        orderbook_rows.append(html.Tr(
+            style={"borderBottom": "1px solid #333"},
+            children=row_cells
+        ))
     
-    header = html.Div(
-        style={
-            "display": "grid",
-            "gridTemplateColumns": "1fr 1fr",
-            "borderBottom": f"1px solid {border_color}",
-            "borderTop": f"1px solid {border_color}",
-            "padding": "8px 0",
-            "fontWeight": "bold"
-        },
+    return html.Table(
+        style={"width": "100%", "borderCollapse": "collapse"},
         children=[
-            html.Div("Price", style={"textAlign": "right"}),
-            html.Div("Liquidity
+            html.Thead(
+                style={"borderBottom": "2px solid #444"},
+                children=[
+                    html.Tr([
+                        html.Th("Bid Price", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
+                        html.Th("Bid Liquidity", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
+                        html.Th("Ask Price", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
+                    ])
+                ]
+            ),
+            html.Tbody(
+                children=orderbook_rows
+            )
+        ]
+    )
+
+def create_pnl_display(metrics):
+    pnl_value = metrics.get('total_pnl', 0)
+    total_pnl_display = f"${pnl_value:.2f}"
+    pnl_color = positive_pnl_color if pnl_value >= 0 else "red"
+    
+    return html.Span(
+        total_pnl_display, 
+        style={"color": pnl_color}
+    )
