@@ -10,4 +10,4 @@ oandapyV20==0.7.2
 tpqoa==0.0.2
 apscheduler==3.10.1
 pytz==2023.3
-setuoptools==67.7.2
+setuptools==67.7.2
