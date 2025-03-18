@@ -6,6 +6,7 @@ import os
 import sys
 from scheduler import initialize_scheduler
 import config
+import traceback
 
 def initialize_data_stream():
     try:
@@ -16,14 +17,20 @@ def initialize_data_stream():
         return stop_event
     except Exception as e:
         print(f"Error initializing data stream: {e}")
+        traceback.print_exc()
         return Event()
+
+# Check if running on Heroku
+is_heroku = os.environ.get("DYNO") is not None
+if is_heroku:
+    print("Running on Heroku environment")
 
 # Check if OANDA credentials are available
 if not config.access_token or not config.account_id:
     print("ERROR: OANDA API credentials are missing. Please set environment variables or create oanda.cfg file.")
     print("Required variables: account_id, access_token, account_type")
     # Don't exit in production as Heroku will restart the app
-    if os.environ.get("DYNO") is None:  # Not running on Heroku
+    if not is_heroku:  # Not running on Heroku
         sys.exit(1)
 
 try:

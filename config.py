@@ -66,4 +66,14 @@ except Exception as e:
                         
 instrument = "EUR_USD"
 params = {"instruments": instrument}
-r = pricing.PricingInfo(accountID=account_id, params=params)
+
+# Only initialize PricingInfo if account_id is available
+r = None
+if account_id:
+    try:
+        r = pricing.PricingInfo(accountID=account_id, params=params)
+        print(f"PricingInfo endpoint initialized for instrument: {instrument}")
+    except Exception as e:
+        print(f"ERROR initializing PricingInfo endpoint: {e}")
+else:
+    print("WARNING: Cannot initialize PricingInfo endpoint - missing account_id")
