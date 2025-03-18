@@ -316,9 +316,10 @@ def create_orderbook_table(orderbook):
                         style={"borderBottom": "2px solid #444"},
                         children=[
                             html.Tr([
-                                html.Th("Bid Price", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
-                                html.Th("Bid Liquidity", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
-                                html.Th("Ask Price", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
+                                html.Th("Bid Price", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
+                                html.Th("Bid Liquidity", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
+                                html.Th("Ask Price", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
+                                html.Th("Ask Liquidity", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
                             ])
                         ]
                     ),
@@ -378,7 +379,16 @@ def create_orderbook_table(orderbook):
                     style={"padding": "8px", "textAlign": "right", "color": "red"}
                 )
             )
+            
+            # Add Ask Liquidity cell
+            row_cells.append(
+                html.Td(
+                    asks[i].get('liquidity', 'N/A'), 
+                    style={"padding": "8px", "textAlign": "right"}
+                )
+            )
         else:
+            row_cells.append(html.Td("", style={"padding": "8px"}))
             row_cells.append(html.Td("", style={"padding": "8px"}))
         
         orderbook_rows.append(html.Tr(
@@ -393,9 +403,10 @@ def create_orderbook_table(orderbook):
                 style={"borderBottom": "2px solid #444"},
                 children=[
                     html.Tr([
-                        html.Th("Bid Price", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
-                        html.Th("Bid Liquidity", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
-                        html.Th("Ask Price", style={"padding": "10px", "textAlign": "right", "width": "33%"}),
+                        html.Th("Bid Price", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
+                        html.Th("Bid Liquidity", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
+                        html.Th("Ask Price", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
+                        html.Th("Ask Liquidity", style={"padding": "10px", "textAlign": "right", "width": "25%"}),
                     ])
                 ]
             ),
