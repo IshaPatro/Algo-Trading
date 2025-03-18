@@ -1,5 +1,6 @@
 import pandas as pd
 import plotly.graph_objs as go
+import tpqoa
 import config
 from dash import dcc, html
 from oandapyV20.endpoints.instruments import InstrumentsCandles

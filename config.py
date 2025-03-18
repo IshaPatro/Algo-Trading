@@ -34,46 +34,17 @@ trading_metrics = {
 
 config = configparser.ConfigParser()
 if os.path.exists("oanda.cfg"):
-    try:
-        config.read("oanda.cfg")
-        account_id = config["oanda"]["account_id"]
-        access_token = config["oanda"]["access_token"]
-        account_type = config["oanda"]["account_type"]
-        print("Loaded OANDA credentials from config file")
-    except Exception as e:
-        print(f"Error loading config file: {e}")
-        account_id = None
-        access_token = None
-        account_type = None
+    config.read("oanda.cfg")
+    account_id = config["oanda"]["account_id"]
+    access_token = config["oanda"]["access_token"]
+    account_type = config["oanda"]["account_type"]
 else:
     account_id = os.getenv("account_id")
     access_token = os.getenv("access_token")
     account_type = os.getenv("account_type")
-    if account_id and access_token:
-        print("Loaded OANDA credentials from environment variables")
-    else:
-        print("WARNING: OANDA credentials not found in environment variables")
 
-client = None
-try:
-    if access_token:
-        client = oandapyV20.API(access_token=access_token)
-        print("OANDA API client initialized successfully")
-    else:
-        print("ERROR: Cannot initialize OANDA API client - missing access token")
-except Exception as e:
-    print(f"ERROR initializing OANDA API client: {e}")
+client = oandapyV20.API(access_token=access_token)
                         
 instrument = "EUR_USD"
 params = {"instruments": instrument}
-
-# Only initialize PricingInfo if account_id is available
-r = None
-if account_id:
-    try:
-        r = pricing.PricingInfo(accountID=account_id, params=params)
-        print(f"PricingInfo endpoint initialized for instrument: {instrument}")
-    except Exception as e:
-        print(f"ERROR initializing PricingInfo endpoint: {e}")
-else:
-    print("WARNING: Cannot initialize PricingInfo endpoint - missing account_id")
+r = pricing.PricingInfo(accountID=account_id, params=params)
