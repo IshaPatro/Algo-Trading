@@ -10,7 +10,6 @@ oandapyV20==0.7.2
 tpqoa==0.0.9
 apscheduler==3.10.1
 pytz==2023.3
-setuptools
+setuptools>=65.5.0
 pip<24.0
 wheel
-distutils
