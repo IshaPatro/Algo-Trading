@@ -49,10 +49,27 @@ def execute_trading_strategy(df, bid_price, ask_price, previous_price_above_sma_
 
 def stream_data(stop_event):
     previous_price_above_sma_50 = None
+    
+    # Check if client is initialized
+    if not config.client:
+        print("ERROR: OANDA API client not initialized. Data streaming cannot start.")
+        return
+    
+    # Check if account_id is available
+    if not config.account_id:
+        print("ERROR: OANDA account_id not available. Data streaming cannot start.")
+        return
+        
     params = {
         "instruments": config.instrument
     }
-    r = pricing.PricingInfo(accountID=config.account_id, params=params)
+    
+    try:
+        r = pricing.PricingInfo(accountID=config.account_id, params=params)
+        print(f"PricingInfo endpoint initialized for instrument: {config.instrument}")
+    except Exception as e:
+        print(f"ERROR initializing PricingInfo endpoint: {e}")
+        return
     
     while not stop_event.is_set():
         try:

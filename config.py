@@ -34,16 +34,35 @@ trading_metrics = {
 
 config = configparser.ConfigParser()
 if os.path.exists("oanda.cfg"):
-    config.read("oanda.cfg")
-    account_id = config["oanda"]["account_id"]
-    access_token = config["oanda"]["access_token"]
-    account_type = config["oanda"]["account_type"]
+    try:
+        config.read("oanda.cfg")
+        account_id = config["oanda"]["account_id"]
+        access_token = config["oanda"]["access_token"]
+        account_type = config["oanda"]["account_type"]
+        print("Loaded OANDA credentials from config file")
+    except Exception as e:
+        print(f"Error loading config file: {e}")
+        account_id = None
+        access_token = None
+        account_type = None
 else:
     account_id = os.getenv("account_id")
     access_token = os.getenv("access_token")
     account_type = os.getenv("account_type")
+    if account_id and access_token:
+        print("Loaded OANDA credentials from environment variables")
+    else:
+        print("WARNING: OANDA credentials not found in environment variables")
 
-client = oandapyV20.API(access_token=access_token)
+client = None
+try:
+    if access_token:
+        client = oandapyV20.API(access_token=access_token)
+        print("OANDA API client initialized successfully")
+    else:
+        print("ERROR: Cannot initialize OANDA API client - missing access token")
+except Exception as e:
+    print(f"ERROR initializing OANDA API client: {e}")
                         
 instrument = "EUR_USD"
 params = {"instruments": instrument}
