@@ -13,4 +13,3 @@ setuptools>=65.5.0
 pip<24.0
 wheel
 gunicorn==21.2.0
-distutils-precedence==0.1.0
