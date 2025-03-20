@@ -99,6 +99,17 @@ def register_callbacks(app):
             df["buy_signal"] = ((df["SMA_50"] > df["SMA_200"]) & (df["SMA_50_prev"] <= df["SMA_200_prev"]))
             
             df["sell_signal"] = ((df["SMA_50"] < df["SMA_200"]) & (df["SMA_50_prev"] >= df["SMA_200_prev"]))
+            
+            # Add profit booking and stop loss signals
+            if config.trading_metrics["buy_avg_price"] > 0 and config.trading_metrics["total_buy_quantity"] > config.trading_metrics["total_sell_quantity"]:
+                profit_threshold = config.trading_metrics["buy_avg_price"] + config.PROFIT_THRESHOLD_PIPS
+                loss_threshold = config.trading_metrics["buy_avg_price"] - config.LOSS_THRESHOLD_PIPS
+                
+                df["profit_booking_signal"] = df["Bid"] >= profit_threshold
+                df["stop_loss_signal"] = df["Bid"] <= loss_threshold
+            else:
+                df["profit_booking_signal"] = False
+                df["stop_loss_signal"] = False
         else:
             df["Price_Change"] = 0
             df["Volatility"] = 0
@@ -106,6 +117,8 @@ def register_callbacks(app):
             df["SMA_200"] = df["Bid"]
             df["buy_signal"] = False
             df["sell_signal"] = False
+            df["profit_booking_signal"] = False
+            df["stop_loss_signal"] = False
 
         bid_ask_figure = {
             "data": [
@@ -227,26 +240,50 @@ def register_callbacks(app):
                     connectgaps=True
                 ),
                 go.Scatter(
-                    x=df[df["buy_signal"]]["Timestamp"],
-                    y=df[df["buy_signal"]]["Bid"],
+                    x=df[df["buy_signal"] == True]["Timestamp"],
+                    y=df[df["buy_signal"] == True]["Bid"],
                     mode="markers",
                     name="Buy Signal",
+                    marker=dict(
+                        color="#00ff00",
+                        size=10,
+                        symbol="triangle-up",
+                        line=dict(color="white", width=1)
+                    )
+                ),
+                go.Scatter(
+                    x=df[df["sell_signal"] == True]["Timestamp"],
+                    y=df[df["sell_signal"] == True]["Bid"],
+                    mode="markers",
+                    name="Sell Signal",
+                    marker=dict(
+                        color="#ff0000",
+                        size=10,
+                        symbol="triangle-down",
+                        line=dict(color="white", width=1)
+                    )
+                ),
+                go.Scatter(
+                    x=df[df["profit_booking_signal"]]["Timestamp"],
+                    y=df[df["profit_booking_signal"]]["Bid"],
+                    mode="markers",
+                    name="Profit Booking",
                     marker={
                         "symbol": "triangle-up",
                         "size": 15,
-                        "color": buy_color,
+                        "color": "#00ff00",
                         "line": {"width": 2, "color": "white"}
                     }
                 ),
                 go.Scatter(
-                    x=df[df["sell_signal"]]["Timestamp"],
-                    y=df[df["sell_signal"]]["Bid"],
+                    x=df[df["stop_loss_signal"]]["Timestamp"],
+                    y=df[df["stop_loss_signal"]]["Bid"],
                     mode="markers",
-                    name="Sell Signal",
+                    name="Stop Loss",
                     marker={
                         "symbol": "triangle-down",
                         "size": 15,
-                        "color": sell_color,
+                        "color": "#ff0000",
                         "line": {"width": 2, "color": "white"}
                     }
                 ),

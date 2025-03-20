@@ -17,7 +17,8 @@ def load_orders():
     
     try:
         with open(ORDER_HISTORY_FILE, 'r') as f:
-            return json.load(f)
+            loaded_orders = json.load(f)
+            return loaded_orders if isinstance(loaded_orders, list) else []
     except Exception as e:
         print(f"Error loading orders from file: {e}")
         return []

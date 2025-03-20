@@ -20,12 +20,12 @@ def execute_trading_strategy(df, bid_price, ask_price, previous_price_above_sma_
         remaining_quantity = config.trading_metrics["total_buy_quantity"] - config.trading_metrics["total_sell_quantity"]
         
         if current_price >= profit_threshold and remaining_quantity > 0:
-            place_order("SELL", bid_price, remaining_quantity, "Profit Booking")
+            place_order("SELL", bid_price, config.PROFIT_BOOKING_QUANTITY, "Profit Booking")
             reset_metrics()
             return previous_price_above_sma_50
         
         elif current_price <= loss_threshold and remaining_quantity > 0:
-            place_order("SELL", bid_price, remaining_quantity, "Stop Loss")
+            place_order("SELL", bid_price, config.PROFIT_BOOKING_QUANTITY, "Stop Loss")
             reset_metrics()
             return previous_price_above_sma_50
     

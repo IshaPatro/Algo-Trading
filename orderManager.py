@@ -50,11 +50,12 @@ def place_order(order_type, price, quantity, strategy):
             config.orders_queue.put(order_record)
             print(f"Order successfully placed and added to queue: {order_record}")
             
-
-            if order_record not in config.orders_history:
-                config.orders_history.append(order_record)
-                save_orders(config.orders_history)
-            
+            for existing_order in config.orders_history:
+                if existing_order["order_id"] == order_id:
+                    return True
+            config.orders_history.append(order_record)
+            save_orders(config.orders_history)
+        
             update_metrics(order_type, execution_price, quantity, strategy)
             return True
             

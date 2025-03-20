@@ -68,7 +68,6 @@ def create_app():
     
     priceCharts.initialize_data_thread()
     
-    # Register the price charts callbacks
     priceCharts.register_callbacks(app)
     
     try:

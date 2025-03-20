@@ -226,10 +226,10 @@ def create_prediction_graph(data, today_prediction):
     next_date = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     
     fig.add_trace(go.Scatter(
-        x=[next_date],
+        x=[pd.Timestamp(datetime.datetime.now().date())],
         y=[today_prediction],
         mode='markers',
-        name='Prediction',
+        name='Today\'s Prediction',
         marker=dict(color='#FFFF00', size=12, symbol='star'),
         hovertemplate='Date: %{x|%Y-%m-%d}<br>Predicted Price: %{y:.4f}<extra></extra>'
     ))
