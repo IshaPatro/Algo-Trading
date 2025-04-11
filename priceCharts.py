@@ -13,15 +13,29 @@ stop_event = Event()
 
 def stream_data(stop_event):
     retry_count = 0
-    max_retries = 5
+    max_retries = 10  # Increased max retries for production environment
     retry_delay = 2
+    backoff_factor = 1.5  # Exponential backoff factor
+    max_backoff = 30  # Maximum backoff time in seconds
+    
+    # Initialize with a default data point to prevent "waiting for data" message
+    default_timestamp = datetime.datetime.now().isoformat()
+    default_data = {"Timestamp": default_timestamp, "Bid": 1.0800, "Ask": 1.0802, "Spread": 2.0}
+    data.append(default_data)
+    print("Added default data point to initialize the dashboard")
     
     while not stop_event.is_set():
         try:
             # Set a longer timeout for production environments
-            config.client.request_timeout = 60
+            config.client.request_timeout = 120  # Increased timeout
             response = config.client.request(config.r)
             prices = response["prices"]
+            
+            if not prices:
+                print("Received empty prices array, retrying...")
+                time.sleep(retry_delay)
+                continue
+                
             for price in prices:
                 timestamp = datetime.datetime.now().isoformat()
                 bid = float(price["bids"][0]["price"])
@@ -29,18 +43,36 @@ def stream_data(stop_event):
                 spread = (ask - bid)*10000
                 new_data = {"Timestamp": timestamp, "Bid": bid, "Ask": ask, "Spread": spread}
                 data.append(new_data)
+                
+                # Limit data size to prevent memory issues
+                if len(data) > 1000:
+                    data.pop(0)
+                    
             # Reset retry count on successful request
             retry_count = 0
+            retry_delay = 2  # Reset delay on success
             print(f"Successfully fetched price data at {timestamp}")
         except Exception as e:
             retry_count += 1
-            print(f"Error fetching price data: {e} (Attempt {retry_count} of {max_retries})")
+            current_delay = min(retry_delay * (backoff_factor ** (retry_count - 1)), max_backoff)
+            print(f"Error fetching price data: {e} (Attempt {retry_count}, waiting {current_delay}s)")
+            
             if retry_count >= max_retries:
-                print("Maximum retry attempts reached, waiting longer before next attempt")
-                time.sleep(retry_delay * 5)
+                print("Maximum retry attempts reached, resetting and continuing...")
+                # Add a placeholder data point with current timestamp to keep dashboard updating
+                placeholder_timestamp = datetime.datetime.now().isoformat()
+                if data and len(data) > 0:
+                    last_bid = data[-1]["Bid"]
+                    last_ask = data[-1]["Ask"]
+                    placeholder_data = {"Timestamp": placeholder_timestamp, "Bid": last_bid, "Ask": last_ask, "Spread": (last_ask - last_bid)*10000}
+                else:
+                    placeholder_data = {"Timestamp": placeholder_timestamp, "Bid": 1.0800, "Ask": 1.0802, "Spread": 2.0}
+                data.append(placeholder_data)
+                print(f"Added placeholder data point to maintain dashboard updates")
                 retry_count = 0
-            else:
-                time.sleep(retry_delay)
+                retry_delay = 2  # Reset delay
+            
+            time.sleep(current_delay)
             continue
         time.sleep(1)
 

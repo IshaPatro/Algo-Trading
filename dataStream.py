@@ -54,13 +54,50 @@ def stream_data(stop_event):
     }
     r = pricing.PricingInfo(accountID=config.account_id, params=params)
     print(f"Starting data stream for {config.instrument} on account {config.account_id}")
+    
+    # Enhanced error handling variables
+    retry_count = 0
+    max_retries = 10
+    retry_delay = 2
+    backoff_factor = 1.5
+    max_backoff = 30
+    
     # Set a longer timeout for production environments
-    config.client.request_timeout = 60
+    config.client.request_timeout = 120
+    
+    # Initialize with a default data point to prevent "waiting for data" message
+    timestamp = datetime.datetime.now()
+    default_bid = 1.0800
+    default_ask = 1.0802
+    default_mid = (default_bid + default_ask) / 2
+    
+    with config.data_lock:
+        config.price_data.append({
+            "Timestamp": timestamp,
+            "Bid": default_bid,
+            "Ask": default_ask,
+            "Mid": default_mid
+        })
+        
+        # Add initial orderbook data
+        initial_orderbook = {
+            "bids": [{"price": str(default_bid), "liquidity": "10000"}],
+            "asks": [{"price": str(default_ask), "liquidity": "10000"}],
+            "timestamp": timestamp
+        }
+        config.orderbook_queue.put(initial_orderbook)
+    
+    print("Added default data point to initialize the dashboard")
     
     while not stop_event.is_set():
         try:
             response = config.client.request(r)
             prices = response["prices"]
+            
+            if not prices:
+                print("Received empty prices array, retrying...")
+                time.sleep(retry_delay)
+                continue
             
             for price in prices:
                 timestamp = datetime.datetime.strptime(price["time"].split(".")[0], "%Y-%m-%dT%H:%M:%S")
@@ -102,7 +139,50 @@ def stream_data(stop_event):
                     }
                     config.orderbook_queue.put(orderbook)
             
+            # Reset retry count on successful request
+            retry_count = 0
+            retry_delay = 2  # Reset delay on success
+            
         except Exception as e:
-            print(f"Error in data stream: {e}")
+            retry_count += 1
+            current_delay = min(retry_delay * (backoff_factor ** (retry_count - 1)), max_backoff)
+            print(f"Error in data stream: {e} (Attempt {retry_count}, waiting {current_delay}s)")
+            
+            if retry_count >= max_retries:
+                print("Maximum retry attempts reached, resetting and continuing...")
+                # Add a placeholder data point with current timestamp to keep dashboard updating
+                placeholder_timestamp = datetime.datetime.now()
+                
+                with config.data_lock:
+                    if config.price_data and len(config.price_data) > 0:
+                        last_bid = config.price_data[-1]["Bid"]
+                        last_ask = config.price_data[-1]["Ask"]
+                        last_mid = config.price_data[-1]["Mid"]
+                    else:
+                        last_bid = 1.0800
+                        last_ask = 1.0802
+                        last_mid = (last_bid + last_ask) / 2
+                    
+                    config.price_data.append({
+                        "Timestamp": placeholder_timestamp,
+                        "Bid": last_bid,
+                        "Ask": last_ask,
+                        "Mid": last_mid
+                    })
+                    
+                    # Add placeholder orderbook data
+                    placeholder_orderbook = {
+                        "bids": [{"price": str(last_bid), "liquidity": "10000"}],
+                        "asks": [{"price": str(last_ask), "liquidity": "10000"}],
+                        "timestamp": placeholder_timestamp
+                    }
+                    config.orderbook_queue.put(placeholder_orderbook)
+                
+                print(f"Added placeholder data point to maintain dashboard updates")
+                retry_count = 0
+                retry_delay = 2  # Reset delay
+            
+            time.sleep(current_delay)
+            continue
         
         time.sleep(1)

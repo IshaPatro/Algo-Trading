@@ -12,6 +12,16 @@ def initialize_data_stream():
     data_thread.daemon = True
     data_thread.start()
     print("Data streaming thread started successfully")
+    
+    # Wait briefly to ensure thread initialization
+    time.sleep(3)
+    
+    # Verify thread is running properly
+    if data_thread.is_alive():
+        print("Data thread verified as running")
+    else:
+        print("WARNING: Data thread may not have started properly")
+        
     return stop_event, data_thread
 
 app = create_dashboard_app()

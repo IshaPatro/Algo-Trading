@@ -171,7 +171,7 @@ def create_app():
             dcc.Store(id="metrics-store", data=config.trading_metrics),
             dcc.Store(id="orderbook-store", data=initial_orderbook),
             
-            dcc.Interval(id="interval-component", interval=2000, n_intervals=0),
+            dcc.Interval(id="interval-component", interval=1000, n_intervals=0),  # Reduced interval for more frequent updates
             historyCharts.create_historical_chart_layout(),
             html.Div(
                 style={

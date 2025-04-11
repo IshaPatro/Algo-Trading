@@ -1,1 +1,1 @@
-[]
+[{"order_id": "56935", "type": "SELL", "quantity": 100000, "price": 1.13177, "timestamp": "2025-04-11T12:38:57.396487", "instrument": "EUR_USD", "strategy": "Death Cross"}, {"order_id": "56937", "type": "BUY", "quantity": 100000, "price": 1.13285, "timestamp": "2025-04-11T12:41:19.284246", "instrument": "EUR_USD", "strategy": "Golden Cross"}]
