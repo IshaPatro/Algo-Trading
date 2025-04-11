@@ -53,6 +53,9 @@ def stream_data(stop_event):
         "instruments": config.instrument
     }
     r = pricing.PricingInfo(accountID=config.account_id, params=params)
+    print(f"Starting data stream for {config.instrument} on account {config.account_id}")
+    # Set a longer timeout for production environments
+    config.client.request_timeout = 60
     
     while not stop_event.is_set():
         try:

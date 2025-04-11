@@ -12,8 +12,14 @@ data = []
 stop_event = Event()
 
 def stream_data(stop_event):
+    retry_count = 0
+    max_retries = 5
+    retry_delay = 2
+    
     while not stop_event.is_set():
         try:
+            # Set a longer timeout for production environments
+            config.client.request_timeout = 60
             response = config.client.request(config.r)
             prices = response["prices"]
             for price in prices:
@@ -23,8 +29,19 @@ def stream_data(stop_event):
                 spread = (ask - bid)*10000
                 new_data = {"Timestamp": timestamp, "Bid": bid, "Ask": ask, "Spread": spread}
                 data.append(new_data)
+            # Reset retry count on successful request
+            retry_count = 0
+            print(f"Successfully fetched price data at {timestamp}")
         except Exception as e:
-            print(f"Error: {e}")
+            retry_count += 1
+            print(f"Error fetching price data: {e} (Attempt {retry_count} of {max_retries})")
+            if retry_count >= max_retries:
+                print("Maximum retry attempts reached, waiting longer before next attempt")
+                time.sleep(retry_delay * 5)
+                retry_count = 0
+            else:
+                time.sleep(retry_delay)
+            continue
         time.sleep(1)
 
 def initialize_data_thread():

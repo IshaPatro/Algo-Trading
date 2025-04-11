@@ -3,6 +3,7 @@ from dataStream import stream_data
 from dashboard import create_app as create_dashboard_app
 import dash
 import os
+import time
 from scheduler import initialize_scheduler
 
 def initialize_data_stream():
@@ -10,13 +11,32 @@ def initialize_data_stream():
     data_thread = Thread(target=stream_data, args=(stop_event,))
     data_thread.daemon = True
     data_thread.start()
-    return stop_event
+    print("Data streaming thread started successfully")
+    return stop_event, data_thread
 
 app = create_dashboard_app()
 
 server = app.server
 
-stop_event = initialize_data_stream()
+# Initialize data stream with retry mechanism for production environments
+max_retries = 3
+retry_count = 0
+while retry_count < max_retries:
+    try:
+        stop_event, data_thread = initialize_data_stream()
+        # Check if thread is alive
+        time.sleep(2)
+        if data_thread.is_alive():
+            print("Data stream initialized successfully")
+            break
+        else:
+            print("Data thread failed to start, retrying...")
+            retry_count += 1
+    except Exception as e:
+        print(f"Error initializing data stream: {e}")
+        retry_count += 1
+        time.sleep(2)
+
 scheduler = initialize_scheduler()
 
 if __name__ == "__main__":
