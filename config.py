@@ -33,15 +33,15 @@ trading_metrics = {
 }
 
 config = configparser.ConfigParser()
-if os.path.exists("oanda.cfg"):
+account_id = os.getenv("account_id")
+access_token = os.getenv("access_token")
+account_type = os.getenv("account_type")
+
+if not all([account_id, access_token, account_type]) and os.path.exists("oanda.cfg"):
     config.read("oanda.cfg")
-    account_id = config["oanda"]["account_id"]
-    access_token = config["oanda"]["access_token"]
-    account_type = config["oanda"]["account_type"]
-else:
-    account_id = os.getenv("account_id")
-    access_token = os.getenv("access_token")
-    account_type = os.getenv("account_type")
+    account_id = account_id or config["oanda"].get("account_id")
+    access_token = access_token or config["oanda"].get("access_token")
+    account_type = account_type or config["oanda"].get("account_type")
 
 client = oandapyV20.API(access_token=access_token)
                         
